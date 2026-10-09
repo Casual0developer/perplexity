@@ -90,7 +90,7 @@ jobs:
                   });
 
               const body = {
-                username: "Perplexity",
+                username: "Captain Skid",
 
                 embeds: [
                   {
