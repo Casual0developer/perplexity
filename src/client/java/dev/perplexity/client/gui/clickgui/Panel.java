@@ -5,6 +5,7 @@ import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
 import dev.perplexity.client.module.setting.ModeSetting;
 import dev.perplexity.client.module.setting.NumberSetting;
+import dev.perplexity.client.module.setting.RangeSetting;
 import dev.perplexity.client.module.setting.Setting;
 import dev.perplexity.client.render.vg.VGFont;
 import dev.perplexity.client.render.vg.VGRenderer;
@@ -25,6 +26,7 @@ public final class Panel {
     private static final int TYPE_BOOL = 1;
     private static final int TYPE_NUMBER = 2;
     private static final int TYPE_MODE = 3;
+    private static final int TYPE_RANGE = 4;
 
     private static final float SETTINGS_SLIDE = 22.0F;
 
@@ -47,6 +49,8 @@ public final class Panel {
     private float dragOffsetY;
 
     private NumberSetting draggingSlider;
+    private RangeSetting draggingRange;
+    private boolean draggingRangeHigh;
 
     public Panel(Category category, List<Module> modules, float x, float y) {
         this.category = category;
@@ -248,6 +252,42 @@ public final class Panel {
             return;
         }
 
+        if (setting instanceof RangeSetting range) {
+            if (hovered) {
+                VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
+                        GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
+            }
+            VGRenderer.text(setting.getName(), sx + GlassTheme.PADDING, sy + 3.0F,
+                    GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F, 0.0F,
+                    GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
+
+            String value = range.display();
+            float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
+            VGRenderer.text(value, (sx + sw - GlassTheme.PADDING) - valueWidth, sy + 3.0F,
+                    GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F, 0.0F,
+                    GlassTheme.scaleAlpha(draggingRange == range ? GlassTheme.textPrimary() : GlassTheme.textMuted(), alpha));
+
+            float trackX = sx + GlassTheme.PADDING;
+            float trackW = sw - GlassTheme.PADDING * 2.0F;
+            float trackY = sy + GlassTheme.SETTING_HEIGHT + 1.0F;
+            float trackH = GlassTheme.TRACK_HEIGHT;
+            VGRenderer.roundedRect(trackX, trackY, trackW, trackH, trackH / 2.0F,
+                    GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), alpha));
+
+            float lowX = trackW * range.normalizedLow();
+            float highX = trackW * range.normalizedHigh();
+            if (highX - lowX > 0.5F) {
+                VGRenderer.roundedRect(trackX + lowX, trackY, highX - lowX, trackH, trackH / 2.0F,
+                        GlassTheme.scaleAlpha(GlassTheme.accent(), alpha));
+            }
+            float knob = GlassTheme.KNOB_SIZE;
+            VGRenderer.circle(trackX + lowX, trackY + trackH / 2.0F, knob * 0.5F,
+                    GlassTheme.scaleAlpha(GlassTheme.knob(), alpha));
+            VGRenderer.circle(trackX + highX, trackY + trackH / 2.0F, knob * 0.5F,
+                    GlassTheme.scaleAlpha(GlassTheme.knob(), alpha));
+            return;
+        }
+
         if (setting instanceof ModeSetting mode) {
             if (hovered) {
                 VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
@@ -277,7 +317,9 @@ public final class Panel {
     }
 
     private static float rowHeight(Setting setting) {
-        return setting instanceof NumberSetting ? GlassTheme.SLIDER_HEIGHT : GlassTheme.SETTING_HEIGHT;
+        return setting instanceof NumberSetting || setting instanceof RangeSetting
+                ? GlassTheme.SLIDER_HEIGHT
+                : GlassTheme.SETTING_HEIGHT;
     }
 
     private float expand(Module module) {
@@ -303,6 +345,9 @@ public final class Panel {
         }
         if (setting instanceof NumberSetting) {
             return TYPE_NUMBER;
+        }
+        if (setting instanceof RangeSetting) {
+            return TYPE_RANGE;
         }
         return TYPE_MODE;
     }
@@ -346,6 +391,13 @@ public final class Panel {
                         updateSlider(number, mouseX, row);
                     }
                 }
+                case TYPE_RANGE -> {
+                    if (button == 0 && row.setting instanceof RangeSetting range) {
+                        draggingRange = range;
+                        draggingRangeHigh = nearestKnobIsHigh(range, mouseX, row);
+                        updateRange(range, mouseX, row);
+                    }
+                }
                 case TYPE_MODE -> {
                     if (row.setting instanceof ModeSetting mode && (button == 0 || button == 1)) {
                         mode.cycle();
@@ -374,11 +426,20 @@ public final class Panel {
                 }
             }
         }
+        if (draggingRange != null) {
+            for (Row row : rows) {
+                if (row.setting == draggingRange) {
+                    updateRange(draggingRange, mouseX, row);
+                    break;
+                }
+            }
+        }
     }
 
     public void mouseReleased() {
         draggingPanel = false;
         draggingSlider = null;
+        draggingRange = null;
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
@@ -405,6 +466,29 @@ public final class Panel {
             return;
         }
         number.setNormalized((float) ((mouseX - trackX) / trackW));
+    }
+
+    /** Picks the knob closer to the cursor so a drag grabs the end the user aimed at. */
+    private static boolean nearestKnobIsHigh(RangeSetting range, double mouseX, Row row) {
+        float trackX = row.x + GlassTheme.PADDING;
+        float trackW = row.w - GlassTheme.PADDING * 2.0F;
+        float lowX = trackX + trackW * range.normalizedLow();
+        float highX = trackX + trackW * range.normalizedHigh();
+        return Math.abs(mouseX - highX) < Math.abs(mouseX - lowX);
+    }
+
+    private void updateRange(RangeSetting range, double mouseX, Row row) {
+        float trackX = row.x + GlassTheme.PADDING;
+        float trackW = row.w - GlassTheme.PADDING * 2.0F;
+        if (trackW <= 0.0F) {
+            return;
+        }
+        float fraction = (float) ((mouseX - trackX) / trackW);
+        if (draggingRangeHigh) {
+            range.setNormalizedHigh(fraction);
+        } else {
+            range.setNormalizedLow(fraction);
+        }
     }
 
     private record Row(int type, Module module, Setting setting, float x, float y, float w, float h) {

@@ -30,6 +30,13 @@ public final class ModuleManager {
         return Collections.unmodifiableList(modules);
     }
 
+    /** Ticks every enabled module once; disabled modules are skipped inside {@link Module#tick()}. */
+    public void tick() {
+        for (Module module : modules) {
+            module.tick();
+        }
+    }
+
     public List<Module> byCategory(Category category) {
         List<Module> result = new ArrayList<>();
         for (Module module : modules) {

@@ -5,6 +5,8 @@
 	"client": [
 		"ExampleClientMixin",
 		"MixinGuiRenderer",
+		"anchor.MinecraftAnchorInputMixin",
+		"anchor.MultiPlayerGameModeAnchorMixin",
 		"rotation.ClientPacketListenerRotationMixin",
 		"rotation.EntityMovementMixin",
 		"rotation.FireworkRocketRotationMixin",

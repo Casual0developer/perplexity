@@ -4,6 +4,8 @@ import com.mojang.blaze3d.platform.InputConstants;
 
 import dev.perplexity.client.gui.clickgui.ClickGuiConfig;
 import dev.perplexity.client.gui.clickgui.ClickGuiScreen;
+import dev.perplexity.client.module.ModuleManager;
+import dev.perplexity.client.module.combat.AnchorMacroModule;
 import dev.perplexity.client.utils.rotation.RotationManager;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -16,6 +18,8 @@ public class PerplexityClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        ModuleManager.get().register(new AnchorMacroModule());
+
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
         // CHANGE_LOOK rotations have to be applied to the camera every frame, after the tick
         // rotation has been committed, with the frame's partial tick.
@@ -24,6 +28,7 @@ public class PerplexityClient implements ClientModInitializer {
     }
 
     private void onEndTick(Minecraft minecraft) {
+        ModuleManager.get().tick();
         RotationManager.tick(minecraft);
 
         int key = ClickGuiConfig.openKey;

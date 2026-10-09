@@ -88,4 +88,15 @@ public abstract class Module {
 
     protected void onDisable() {
     }
+
+    protected void onTick() {
+    }
+
+    /** Runs the module's per-tick hook. Called by {@link ModuleManager} for enabled modules only. */
+    public void tick() {
+        if (!enabled) {
+            return;
+        }
+        onTick();
+    }
 }
