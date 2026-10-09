@@ -1,0 +1,141 @@
+name: Discord Commit Notifications
+
+on:
+  push:
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send commit notifications
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          script: |
+            const webhook = process.env.DISCORD_WEBHOOK;
+            const payload = context.payload;
+
+            const repo = payload.repository.full_name;
+            const repoName = payload.repository.name;
+            const branch = payload.ref.replace("refs/heads/", "");
+            const commits = payload.commits || [];
+            const sender = payload.sender;
+
+            if (commits.length === 0) {
+              return;
+            }
+
+            for (const commit of commits) {
+              const sha = commit.id;
+
+              const commitData = await github.rest.repos.getCommit({
+                owner: payload.repository.owner.login,
+                repo: repoName,
+                ref: sha
+              });
+
+              if (commitData.data.parents.length > 1) {
+                continue;
+              }
+
+              const shortSha = sha.substring(0, 7);
+
+              const message =
+                commit.message
+                  .split("\n")[0]
+                  ?.trim() ||
+                "No commit message";
+
+              const username =
+                sender?.login ||
+                commit.author?.name ||
+                "Unknown";
+
+              const avatar =
+                sender?.avatar_url ||
+                "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
+
+              const authorUrl =
+                sender?.html_url ||
+                `https://github.com/${username}`;
+
+              const commitUrl =
+                `https://github.com/${repo}/commit/${sha}`;
+
+              const branchUrl =
+                `https://github.com/${repo}/tree/${branch}`;
+
+              const parentSha =
+                commitData.data.parents[0]?.sha;
+
+              const diffUrl = parentSha
+                ? `https://github.com/${repo}/compare/${parentSha}...${sha}`
+                : commitUrl;
+
+              const pushedText =
+                commits.length === 1
+                  ? "1 commit pushed"
+                  : `${commits.length} commits pushed`;
+
+              const commitDate =
+                new Date(commitData.data.commit.author.date)
+                  .toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit"
+                  });
+
+              const body = {
+                username: "Captain Skid",
+
+                embeds: [
+                  {
+                    author: {
+                      name: `${username} pushed to ${repoName}`,
+                      icon_url: avatar,
+                      url: authorUrl
+                    },
+
+                  description:
+                    `**${pushedText} to [\`${branch}\`](${branchUrl})** · ` +
+                    `[View diff](${diffUrl})\n` +
+                    `📝 **${message}**\n` +
+                    `\`${shortSha}\` · ${commitDate} · by **${username}**`,
+
+                    color: 0x800080,
+
+                    footer: {
+                      text: "perplexity - GitHub"
+                    },
+
+                    timestamp: new Date().toISOString()
+                  }
+                ],
+
+                allowed_mentions: {
+                  parse: []
+                }
+              };
+
+              const response = await fetch(webhook, {
+                method: "POST",
+
+                headers: {
+                  "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify(body)
+              });
+
+              if (!response.ok) {
+                const text = await response.text();
+
+                core.setFailed(
+                  `Discord returned ${response.status}: ${text}`
+                );
+              }
+            }
