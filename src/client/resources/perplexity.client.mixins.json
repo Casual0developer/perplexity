@@ -3,7 +3,17 @@
 	"package": "dev.perplexity.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
+		"ExampleClientMixin",
+		"MixinGuiRenderer",
+		"rotation.ClientPacketListenerRotationMixin",
+		"rotation.EntityMovementMixin",
+		"rotation.FireworkRocketRotationMixin",
+		"rotation.GameRendererPickRotationMixin",
+		"rotation.KeyboardInputRotationMixin",
+		"rotation.LivingEntityMovementRotationMixin",
+		"rotation.LocalPlayerRotationMixin",
+		"rotation.MouseHandlerRotationMixin",
+		"rotation.ServerboundUseItemPacketRotationMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
