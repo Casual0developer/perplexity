@@ -17,10 +17,10 @@ import java.util.Random;
  * field.</p>
  */
 final class Backdrop {
-    private static final int MIN_FLAKES = 90;
-    private static final int MAX_FLAKES = 190;
+    private static final int MIN_FLAKES = 120;
+    private static final int MAX_FLAKES = 240;
     /** Roughly one flake per this many square GUI units, clamped to the range above. */
-    private static final float AREA_PER_FLAKE = 5200.0F;
+    private static final float AREA_PER_FLAKE = 3800.0F;
     private static final float MAX_DELTA_SECONDS = 0.05F;
     private static final float SPAWN_MARGIN = 24.0F;
 

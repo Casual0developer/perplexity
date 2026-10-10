@@ -204,16 +204,28 @@ public final class VGRenderer {
         }
     }
 
+    /**
+     * Strokes a border completely <em>inside</em> the given rounded rect, leaving the shape's outer
+     * silhouette untouched.
+     *
+     * <p>The path is inset by half the stroke and its radius is reduced by the same amount, so the
+     * stroke's outer edge lands exactly on the given rect and its corner arcs share a centre with
+     * the fill's. Drawn any other way the corner arc centres shift away from the fill's while
+     * keeping their radius, which makes the border swell outward at the corners and only there.</p>
+     */
     public static void roundedOutline(float x, float y, float width, float height, float radius, float stroke, Color color) {
-        if (!isDrawable(width, height, color) || stroke <= 0.0F) {
+        if (!isDrawable(width, height, color) || stroke <= 0.0F
+                || width <= stroke || height <= stroke) {
             return;
         }
 
+        float inset = stroke * 0.5F;
         long vg = VGContext.handle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             vgBeginPath(vg);
-            vgRoundedRect(vg, x + stroke * 0.5F, y + stroke * 0.5F, width - stroke, height - stroke, Math.max(0.0F, radius));
+            vgRoundedRect(vg, x + inset, y + inset, width - stroke, height - stroke,
+                    Math.max(0.0F, radius - inset));
             vgStrokeWidth(vg, stroke);
             vgStrokeColor(vg, color(stack, color));
             vgStroke(vg);

@@ -129,7 +129,7 @@ public final class Panel {
             return GlassTheme.PANEL_HEADER_HEIGHT;
         }
         float open = Math.min(GlassTheme.MAX_PANEL_HEIGHT,
-                GlassTheme.PANEL_HEADER_HEIGHT + 2.0F + contentHeight());
+                GlassTheme.PANEL_HEADER_HEIGHT + GlassTheme.PANEL_CONTENT_GAP + contentHeight());
         return GlassTheme.PANEL_HEADER_HEIGHT
                 + (open - GlassTheme.PANEL_HEADER_HEIGHT) * (1.0F - collapse);
     }
@@ -156,7 +156,15 @@ public final class Panel {
         collapse = approach(collapse, collapsed ? 1.0F : 0.0F, COLLAPSE_SPEED);
 
         float height = getHeight();
-        VGRenderer.verticalGradient(x, y, width, height, GlassTheme.RADIUS_LG,
+        // The edge is a filled rounded rect with the surface drawn inset on top of it, not a stroked
+        // outline. A stroke is tessellated into short segments, and around the corner arcs that
+        // polyline sits inside the true curve, so a stroked border always renders a touch thinner at
+        // the corners than along the straight runs. Two concentric fills cannot do that.
+        float border = GlassTheme.PANEL_BORDER;
+        VGRenderer.roundedRect(x, y, width, height, GlassTheme.RADIUS_LG, GlassTheme.panelBorder());
+        VGRenderer.verticalGradient(x + border, y + border,
+                width - border * 2.0F, height - border * 2.0F,
+                GlassTheme.RADIUS_LG - border,
                 GlassTheme.surfacePanel(), GlassTheme.surfacePanelBottom());
 
         // Header: semibold and tracked so it still reads as a header now that the separator is gone.
@@ -171,8 +179,8 @@ public final class Panel {
             return;
         }
 
-        float contentTop = y + GlassTheme.PANEL_HEADER_HEIGHT + 2.0F;
-        float visibleHeight = height - GlassTheme.PANEL_HEADER_HEIGHT - 2.0F;
+        float contentTop = y + GlassTheme.PANEL_HEADER_HEIGHT + GlassTheme.PANEL_CONTENT_GAP;
+        float visibleHeight = height - GlassTheme.PANEL_HEADER_HEIGHT - GlassTheme.PANEL_CONTENT_GAP;
         float maxScroll = Math.max(0.0F, contentHeight() * contentAlpha - visibleHeight);
         scroll = Math.max(0.0F, Math.min(maxScroll, scroll));
 
@@ -205,6 +213,13 @@ public final class Panel {
                     cursor + GlassTheme.MODULE_HEIGHT / 2.0F,
                     GlassTheme.FONT_MODULE, VGFont.FACE, nameColor);
 
+            // Accent rail on the left edge: makes the on/off state readable at a glance, where the
+            // tinted label alone is easy to miss in a list.
+            if (enabled > 0.01F) {
+                VGRenderer.roundedRect(x + 3.0F, cursor + 4.0F, 2.0F, GlassTheme.MODULE_HEIGHT - 8.0F,
+                        1.0F, GlassTheme.scaleAlpha(GlassTheme.accent(), enabled * contentAlpha));
+            }
+
             if (module.hasSettings()) {
                 drawChevron(x + width - GlassTheme.PADDING - 2.0F,
                         cursor + GlassTheme.MODULE_HEIGHT / 2.0F, expand,
@@ -214,6 +229,25 @@ public final class Panel {
             rows.add(new Row(TYPE_MODULE, module, null, x, cursor, width, GlassTheme.MODULE_HEIGHT));
 
             if (expand > 0.01F && module.hasSettings()) {
+                // Group container around the settings: a recessed well plus the same edge treatment
+                // the panel uses, so the rows read as one block instead of floating lines.
+                // Full height, faded in, rather than a height that grows with the animation: the rows
+                // sit at fixed offsets, so a growing container would briefly fail to enclose them.
+                // The panel's own scissor reveals it in step with the opening module.
+                float groupAlpha = contentAlpha * expand;
+                float groupX = x + GlassTheme.GROUP_INSET;
+                float groupW = width - GlassTheme.GROUP_INSET * 2.0F;
+                float groupTop = cursor + GlassTheme.MODULE_HEIGHT;
+                float groupH = settingsHeight(module);
+                if (groupH > border * 2.0F + 1.0F) {
+                    VGRenderer.roundedRect(groupX, groupTop, groupW, groupH, GlassTheme.RADIUS_MD,
+                            GlassTheme.scaleAlpha(GlassTheme.panelBorder(), groupAlpha * 0.65F));
+                    VGRenderer.roundedRect(groupX + border, groupTop + border,
+                            groupW - border * 2.0F, groupH - border * 2.0F,
+                            GlassTheme.RADIUS_MD - border,
+                            GlassTheme.scaleAlpha(GlassTheme.groupFill(), groupAlpha));
+                }
+
                 float settingY = cursor + GlassTheme.MODULE_HEIGHT + GlassTheme.SETTING_SPACING;
                 int index = 0;
                 for (Setting setting : module.getSettings()) {
@@ -223,7 +257,7 @@ public final class Panel {
                     float row = clamp01((expand - start) / (1.0F - start));
                     float offsetY = (1.0F - row) * SETTINGS_SLIDE;
                     float settingX = x + GlassTheme.SETTING_INDENT;
-                    float settingW = width - GlassTheme.SETTING_INDENT - 4.0F;
+                    float settingW = width - GlassTheme.SETTING_INDENT * 2.0F;
                     boolean settingHovered = GlassTheme.inside(mouseX, mouseY,
                             settingX, settingY + offsetY, settingW, rowHeight);
                     renderSetting(setting, settingX, settingY + offsetY, settingW, rowHeight,
@@ -255,7 +289,13 @@ public final class Panel {
                                boolean hovered, float rowAlpha) {
         float alpha = clamp01(rowAlpha);
 
-        float labelCenterY = sy + GlassTheme.SETTING_HEIGHT / 2.0F;
+        // Sliders put their label on the row's upper third to leave room for the track below it;
+        // every other row type just centres its single line.
+        boolean slider = setting instanceof NumberSetting || setting instanceof RangeSetting;
+        float labelCenterY = sy + (slider
+                ? GlassTheme.SLIDER_LABEL_CENTER
+                : GlassTheme.SETTING_HEIGHT / 2.0F);
+        float trackY = sy + GlassTheme.SLIDER_TRACK_TOP;
 
         if (setting instanceof BooleanSetting bool) {
             if (hovered) {
@@ -298,10 +338,9 @@ public final class Panel {
 
             float trackX = sx + GlassTheme.PADDING;
             float trackW = sw - GlassTheme.PADDING * 2.0F;
-            float trackY = sy + GlassTheme.SETTING_HEIGHT + 2.0F;
             float trackH = GlassTheme.TRACK_HEIGHT;
             VGRenderer.roundedRect(trackX, trackY, trackW, trackH, trackH / 2.0F,
-                    GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), alpha));
+                    GlassTheme.scaleAlpha(GlassTheme.sliderTrack(), alpha));
 
             float fraction = animate(sliderAnimations, number, number.normalized(), SLIDER_SPEED);
             float filled = trackW * fraction;
@@ -332,10 +371,9 @@ public final class Panel {
 
             float trackX = sx + GlassTheme.PADDING;
             float trackW = sw - GlassTheme.PADDING * 2.0F;
-            float trackY = sy + GlassTheme.SETTING_HEIGHT + 2.0F;
             float trackH = GlassTheme.TRACK_HEIGHT;
             VGRenderer.roundedRect(trackX, trackY, trackW, trackH, trackH / 2.0F,
-                    GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), alpha));
+                    GlassTheme.scaleAlpha(GlassTheme.sliderTrack(), alpha));
 
             float lowX = trackW * animate(rangeLowAnimations, range, range.normalizedLow(), SLIDER_SPEED);
             float highX = trackW * animate(rangeHighAnimations, range, range.normalizedHigh(), SLIDER_SPEED);
@@ -534,7 +572,7 @@ public final class Panel {
         if (collapsed || !GlassTheme.inside(mouseX, mouseY, x, y, width, getHeight())) {
             return false;
         }
-        float visible = getHeight() - GlassTheme.PANEL_HEADER_HEIGHT - 2.0F;
+        float visible = getHeight() - GlassTheme.PANEL_HEADER_HEIGHT - GlassTheme.PANEL_CONTENT_GAP;
         float maxScroll = Math.max(0.0F, contentHeight() - visible);
         if (maxScroll <= 0.0F) {
             return false;

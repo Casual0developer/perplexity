@@ -9,19 +9,32 @@ import java.awt.Color;
 public final class GlassTheme {
     // --- Metrics -------------------------------------------------------------------------------
 
-    public static final float PANEL_WIDTH = 142.0F;
+    public static final float PANEL_WIDTH = 128.0F;
     public static final float PANEL_HEADER_HEIGHT = 22.0F;
+    /** Gap between the header baseline area and the first module row. */
+    public static final float PANEL_CONTENT_GAP = 4.0F;
     public static final float PANEL_SPACING = 10.0F;
-    public static final float INITIAL_Y = 16.0F;
+    public static final float INITIAL_Y = 24.0F;
     public static final float MAX_PANEL_HEIGHT = 460.0F;
 
     public static final float MODULE_HEIGHT = 20.0F;
     public static final float MODULE_SPACING = 3.0F;
     public static final float SETTING_HEIGHT = 18.0F;
-    public static final float SLIDER_HEIGHT = 28.0F;
+    /** Two-line slider row: label on top, track underneath. Deliberately tighter than the old 28. */
+    public static final float SLIDER_HEIGHT = 24.0F;
+    /** Vertical centre of a slider row's label, measured from the top of the row. */
+    public static final float SLIDER_LABEL_CENTER = 7.5F;
+    /** Top of a slider row's track, measured from the top of the row. */
+    public static final float SLIDER_TRACK_TOP = 15.0F;
     public static final float SETTING_SPACING = 3.0F;
-    public static final float SETTING_INDENT = 6.0F;
+    /** Inset of a setting row inside its group container; the container is {@link #GROUP_INSET} in. */
+    public static final float SETTING_INDENT = 8.0F;
     public static final float PADDING = 8.0F;
+
+    /** Thickness of the panel edge. Drawn as two fills, never as a stroke. */
+    public static final float PANEL_BORDER = 1.0F;
+    /** Inset of a settings group container from the panel's sides. */
+    public static final float GROUP_INSET = 4.0F;
 
     // Deliberately small: the UI reads as flat panels, not soap bars.
     public static final float RADIUS_SM = 2.0F;
@@ -30,15 +43,16 @@ public final class GlassTheme {
 
     /** Size of the square "check" control used by boolean settings. */
     public static final float CHECK_SIZE = 11.0F;
-    public static final float TRACK_HEIGHT = 5.0F;
-    public static final float KNOB_SIZE = 8.0F;
+    public static final float TRACK_HEIGHT = 4.0F;
+    public static final float KNOB_SIZE = 6.0F;
 
     public static final float SCROLL_MULTIPLIER = 20.0F;
 
     // --- Type ----------------------------------------------------------------------------------
 
-    public static final float FONT_HEADER = 9.0F;
-    public static final float FONT_MODULE = 9.5F;
+    /** The header outweighs the module rows so a panel reads top-down despite having no rule. */
+    public static final float FONT_HEADER = 9.5F;
+    public static final float FONT_MODULE = 9.0F;
     public static final float FONT_SETTING = 7.5F;
     public static final float FONT_HINT = 7.0F;
 
@@ -64,12 +78,31 @@ public final class GlassTheme {
      * the backdrop glows and flakes read faintly through the panels instead of being hidden by them.
      */
     public static Color surfacePanel() {
-        return dark ? new Color(19, 15, 29, 222) : new Color(250, 248, 255, 216);
+        return dark ? new Color(26, 18, 42, 226) : new Color(250, 248, 255, 216);
     }
 
     /** Bottom of the panel surface gradient, a shade deeper so panels gain a little depth. */
     public static Color surfacePanelBottom() {
-        return dark ? new Color(10, 7, 18, 236) : new Color(236, 232, 250, 232);
+        return dark ? new Color(12, 8, 24, 238) : new Color(236, 232, 250, 232);
+    }
+
+    /**
+     * Hairline edge around a panel. Without it a near-black panel dissolves into a dark scene, so
+     * this is what keeps the card readable over any background. Kept faint on purpose: any stronger
+     * and the panels start reading as outlined form fields instead of cards.
+     */
+    public static Color panelBorder() {
+        return dark ? new Color(124, 92, 255, 42) : new Color(124, 92, 255, 62);
+    }
+
+    /** Recessed well behind an expanded module's settings, so the rows read as one grouped block. */
+    public static Color groupFill() {
+        return dark ? new Color(0, 0, 0, 52) : new Color(0, 0, 0, 16);
+    }
+
+    /** Unfilled part of a slider track. Dimmer than {@link #interactiveMuted()} so tracks recede. */
+    public static Color sliderTrack() {
+        return dark ? new Color(70, 62, 102, 150) : new Color(206, 200, 228, 175);
     }
 
     public static Color textPrimary() {
@@ -114,12 +147,12 @@ public final class GlassTheme {
 
     /** Brighter of the two soft radial washes painted behind the panels. */
     public static Color glow() {
-        return withAlpha(ACCENT, dark ? 58 : 38);
+        return withAlpha(ACCENT, dark ? 96 : 44);
     }
 
     /** Dimmer wash for the opposite corner, so the backdrop is not lit evenly. */
     public static Color glowSoft() {
-        return withAlpha(ACCENT, dark ? 40 : 26);
+        return withAlpha(ACCENT, dark ? 68 : 30);
     }
 
     /** Transparent edge of both washes. */

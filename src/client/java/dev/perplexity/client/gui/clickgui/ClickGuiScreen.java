@@ -25,6 +25,7 @@ public final class ClickGuiScreen extends Screen {
 
     private final Backdrop backdrop = new Backdrop();
     private final List<Panel> panels = new ArrayList<>();
+    private boolean built;
     private float[] slotX = new float[0];
     private float[] slotY = new float[0];
 
@@ -43,10 +44,13 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     protected void init() {
-        if (!panels.isEmpty()) {
+        if (built) {
             return;
         }
+        built = true;
         for (Category category : Category.values()) {
+            // Every category keeps its panel even while it has no modules, so the grid stays stable
+            // and a category is always in the same place once a module is registered for it.
             panels.add(new Panel(category, ModuleManager.get().byCategory(category), 0.0F, GlassTheme.INITIAL_Y));
         }
         slotX = new float[panels.size()];
