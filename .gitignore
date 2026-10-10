@@ -43,4 +43,4 @@ replay_*.log
 
 # skid shit
 SkidFolder/
-freebuff/
+.freebuff/

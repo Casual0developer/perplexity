@@ -448,6 +448,33 @@ public final class VGRenderer {
 
     private static final float CAP_HEIGHT = 0.7275F;
 
+    /**
+     * Left-aligned text whose cap glyphs are vertically centred on {@code centerY}, so rows of
+     * different font sizes line up on the same optical middle.
+     */
+    public static void textLeft(String text, float x, float centerY, float size, String face, Color color) {
+        textLeft(text, x, centerY, size, face, 0.0F, color);
+    }
+
+    /** As {@link #textLeft}, with extra tracking between glyphs. */
+    public static void textLeft(String text, float x, float centerY, float size, String face,
+                                float spacing, Color color) {
+        if (text == null || text.isEmpty() || color == null || color.getAlpha() == 0 || !isInFrame()) {
+            return;
+        }
+        long vg = VGContext.handle();
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            vgFontFace(vg, face == null ? VGFont.FACE : face);
+            vgFontSize(vg, size);
+            vgFontBlur(vg, 0.0F);
+            vgTextLetterSpacing(vg, spacing);
+            vgTextLineHeight(vg, 1.0F);
+            vgTextAlign(vg, VG_ALIGN_LEFT | VG.VG_ALIGN_BASELINE);
+            vgFillColor(vg, color(stack, color));
+            vgText(vg, x + 0.5F, centerY + size * CAP_HEIGHT * 0.5F + 0.5F, text);
+        }
+    }
+
     public static void textCentered(String text, float centerX, float centerY, float size, String face, Color color) {
         if (text == null || text.isEmpty() || color == null || color.getAlpha() == 0 || !isInFrame()) {
             return;

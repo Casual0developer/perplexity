@@ -11,36 +11,28 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * The glass ClickGUI. Everything is drawn with the ported NanoVG renderer inside a single frame that
  * a mixin runs after Minecraft submits its own GUI (see {@link ClickGuiOverlay}). Panels are laid out
- * in a centred grid with a shared scroll, matching the reference client.
+ * in a centred grid with a shared scroll.
  */
 public final class ClickGuiScreen extends Screen {
     private static final float GRID_MARGIN = 24.0F;
     private static final float GLOBAL_SCROLL_SPEED = 60.0F;
 
-    private static final float DOCK_HEIGHT = 30.0F;
-    private static final float DOCK_BUTTON = 24.0F;
-    private static final float DOCK_SPACING = 3.0F;
-    private static final float DOCK_PADDING = 3.0F;
-    private static final float DOCK_MARGIN_BOTTOM = 10.0F;
-
+    private final Backdrop backdrop = new Backdrop();
     private final List<Panel> panels = new ArrayList<>();
     private float[] slotX = new float[0];
     private float[] slotY = new float[0];
 
-    private DockTab activeTab = DockTab.FEATURES;
-    private final float[] dockButtonX = new float[DockTab.values().length];
-    private int hoveredDock = -1;
-
     private float globalScroll;
     private float maxGlobalScroll;
     private int draggingPanel = -1;
+    /** Index of the front-most panel. The list order never changes; this only drives draw order. */
+    private int focusedPanel = -1;
 
     private float lastMouseX;
     private float lastMouseY;
@@ -97,22 +89,20 @@ public final class ClickGuiScreen extends Screen {
             VGRenderer.scale(scale, scale);
 
             VGRenderer.rect(0.0F, 0.0F, width, height, GlassTheme.scrim());
+            backdrop.render(width, height);
             drawWatermark();
 
-            if (activeTab == DockTab.FEATURES) {
-                layoutPanels();
-                for (Panel panel : panels) {
-                    panel.render(lastMouseX, lastMouseY);
+            layoutPanels();
+            // Draw back-to-front with the focused panel last, so raising one never reflows the grid.
+            for (int i = 0; i < panels.size(); i++) {
+                if (i != focusedPanel) {
+                    panels.get(i).render(lastMouseX, lastMouseY);
                 }
-            } else if (activeTab == DockTab.CONFIGS) {
-                drawPlaceholder("Configs", lastMouseX, lastMouseY);
-            } else {
-                drawPlaceholder("Friends", lastMouseX, lastMouseY);
+            }
+            if (focusedPanel >= 0 && focusedPanel < panels.size()) {
+                panels.get(focusedPanel).render(lastMouseX, lastMouseY);
             }
 
-            if (ClickGuiConfig.dock) {
-                drawDock(lastMouseX, lastMouseY);
-            }
             drawHint();
 
             VGRenderer.restore();
@@ -159,92 +149,15 @@ public final class ClickGuiScreen extends Screen {
     }
 
     private void drawWatermark() {
-        VGRenderer.text("perplexity", 12.0F, 10.0F, 9.0F, VGFont.semiboldFace(), 0.0F, 0.0F,
-                GlassTheme.textSecondary());
+        VGRenderer.textLeft("perplexity", 12.0F, 16.0F, 10.0F, VGFont.semiboldFace(), 0.6F,
+                GlassTheme.headerText());
     }
 
     private void drawHint() {
         String hint = "RightShift to close";
         float textWidth = VGRenderer.textWidth(hint, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
-        VGRenderer.text(hint, width - textWidth - 12.0F, 13.0F, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F, 0.0F,
-                GlassTheme.textMuted());
-    }
-
-    private void drawPlaceholder(String title, float mouseX, float mouseY) {
-        float panelWidth = GlassTheme.PANEL_WIDTH;
-        float x = (width - panelWidth) / 2.0F;
-        float y = GlassTheme.INITIAL_Y + 8.0F;
-        float height = GlassTheme.PANEL_HEADER_HEIGHT + 24.0F;
-
-        VGRenderer.roundedRect(x, y, panelWidth, height, GlassTheme.RADIUS_LG, GlassTheme.surfacePanel());
-        VGRenderer.text(title, x + GlassTheme.PADDING + 0.8F,
-                y + GlassTheme.PANEL_HEADER_HEIGHT / 2.0F - GlassTheme.FONT_HEADER * 0.52F,
-                GlassTheme.FONT_HEADER, VGFont.mediumFace(), 0.0F, 0.0F, GlassTheme.textSecondary());
-        VGRenderer.text("Nothing here yet", x + GlassTheme.PADDING + 2.0F,
-                y + GlassTheme.PANEL_HEADER_HEIGHT + 6.0F,
-                GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F, 0.0F, GlassTheme.textMuted());
-    }
-
-    private void drawDock(float mouseX, float mouseY) {
-        DockTab[] tabs = DockTab.values();
-        int count = tabs.length;
-        float dockWidth = DOCK_PADDING * 2.0F + count * DOCK_BUTTON + (count - 1) * DOCK_SPACING;
-        float dockX = (width - dockWidth) / 2.0F;
-        float dockY = height - DOCK_HEIGHT - DOCK_MARGIN_BOTTOM;
-
-        VGRenderer.roundedRect(dockX, dockY, dockWidth, DOCK_HEIGHT, GlassTheme.RADIUS_LG,
-                GlassTheme.dockBackground());
-
-        hoveredDock = -1;
-        float cursor = dockX + DOCK_PADDING;
-        float buttonY = dockY + (DOCK_HEIGHT - DOCK_BUTTON) / 2.0F;
-        for (int i = 0; i < count; i++) {
-            dockButtonX[i] = cursor;
-            boolean active = tabs[i] == activeTab;
-            boolean hovered = GlassTheme.inside(mouseX, mouseY, cursor, buttonY, DOCK_BUTTON, DOCK_BUTTON);
-            if (hovered) {
-                hoveredDock = i;
-            }
-
-            if (active) {
-                VGRenderer.roundedRect(cursor, buttonY, DOCK_BUTTON, DOCK_BUTTON, GlassTheme.RADIUS_MD,
-                        GlassTheme.accent());
-            } else if (hovered) {
-                VGRenderer.roundedRect(cursor, buttonY, DOCK_BUTTON, DOCK_BUTTON, GlassTheme.RADIUS_MD,
-                        GlassTheme.moduleHover());
-            }
-
-            Color iconColor = active ? GlassTheme.textOnAccent() : GlassTheme.textSecondary();
-            drawTabIcon(tabs[i], cursor + DOCK_BUTTON / 2.0F, buttonY + DOCK_BUTTON / 2.0F, iconColor);
-
-            cursor += DOCK_BUTTON + DOCK_SPACING;
-        }
-    }
-
-    private void drawTabIcon(DockTab tab, float cx, float cy, Color color) {
-        switch (tab) {
-            case FEATURES -> {
-                float s = 5.0F;
-                VGRenderer.roundedRect(cx - s - 1.0F, cy - s - 1.0F, s, s, 1.5F, color);
-                VGRenderer.roundedRect(cx + 1.0F, cy - s - 1.0F, s, s, 1.5F, color);
-                VGRenderer.roundedRect(cx - s - 1.0F, cy + 1.0F, s, s, 1.5F, color);
-                VGRenderer.roundedRect(cx + 1.0F, cy + 1.0F, s, s, 1.5F, color);
-            }
-            case CONFIGS -> {
-                float w = 7.0F;
-                for (int i = -1; i <= 1; i++) {
-                    float ly = cy + i * 3.6F;
-                    VGRenderer.line(cx - w, ly, cx + w, ly, 1.3F, color);
-                    VGRenderer.circle(cx + (i == 0 ? 2.0F : -3.0F), ly, 1.4F, color);
-                }
-            }
-            case FRIENDS -> {
-                VGRenderer.circle(cx, cy - 2.8F, 2.8F, color);
-                VGRenderer.roundedRect(cx - 4.6F, cy + 1.0F, 9.2F, 4.6F, 2.3F, color);
-            }
-            default -> {
-            }
-        }
+        VGRenderer.textLeft(hint, width - textWidth - 12.0F, 16.0F, GlassTheme.FONT_HINT,
+                VGFont.FACE, GlassTheme.textMuted());
     }
 
     // --- Input ---------------------------------------------------------------------------------
@@ -255,25 +168,30 @@ public final class ClickGuiScreen extends Screen {
         double mouseY = event.y();
         int button = event.button();
 
-        if (button == 0 && hoveredDock >= 0) {
-            activeTab = DockTab.values()[hoveredDock];
+        // Front-to-back hit test: the focused panel gets first refusal, then the rest top-down.
+        if (focusedPanel >= 0 && focusedPanel < panels.size()
+                && panels.get(focusedPanel).mouseClicked(mouseX, mouseY, button)) {
+            focus(focusedPanel, mouseX, mouseY, button);
             return true;
         }
-
-        if (activeTab == DockTab.FEATURES) {
-            for (int i = panels.size() - 1; i >= 0; i--) {
-                if (panels.get(i).mouseClicked(mouseX, mouseY, button)) {
-                    Panel lifted = panels.remove(i);
-                    panels.add(lifted);
-                    if (button == 0 && GlassTheme.inside(mouseX, mouseY, slotX[i], slotY[i],
-                            GlassTheme.PANEL_WIDTH, GlassTheme.PANEL_HEADER_HEIGHT)) {
-                        draggingPanel = panels.size() - 1;
-                    }
-                    return true;
-                }
+        for (int i = panels.size() - 1; i >= 0; i--) {
+            if (i == focusedPanel) {
+                continue;
+            }
+            if (panels.get(i).mouseClicked(mouseX, mouseY, button)) {
+                focus(i, mouseX, mouseY, button);
+                return true;
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    private void focus(int index, double mouseX, double mouseY, int button) {
+        focusedPanel = index;
+        if (button == 0 && GlassTheme.inside(mouseX, mouseY, slotX[index], slotY[index],
+                GlassTheme.PANEL_WIDTH, GlassTheme.PANEL_HEADER_HEIGHT)) {
+            draggingPanel = index;
+        }
     }
 
     @Override
@@ -290,40 +208,31 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-        if (activeTab == DockTab.FEATURES) {
-            for (Panel panel : panels) {
-                panel.mouseDragged(event.x(), event.y(), event.button());
-            }
+        for (Panel panel : panels) {
+            panel.mouseDragged(event.x(), event.y(), event.button());
         }
         return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (activeTab == DockTab.FEATURES) {
-            for (int i = panels.size() - 1; i >= 0; i--) {
-                if (panels.get(i).mouseScrolled(mouseX, mouseY, scrollY)) {
-                    return true;
-                }
+        if (focusedPanel >= 0 && focusedPanel < panels.size()
+                && panels.get(focusedPanel).mouseScrolled(mouseX, mouseY, scrollY)) {
+            return true;
+        }
+        for (int i = panels.size() - 1; i >= 0; i--) {
+            if (i == focusedPanel) {
+                continue;
             }
-            if (scrollY != 0.0 && maxGlobalScroll > 0.0F) {
-                globalScroll = Math.max(0.0F, Math.min(maxGlobalScroll,
-                        globalScroll - (float) scrollY * GLOBAL_SCROLL_SPEED));
+            if (panels.get(i).mouseScrolled(mouseX, mouseY, scrollY)) {
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
-    private enum DockTab {
-        FEATURES("Features"),
-        CONFIGS("Configs"),
-        FRIENDS("Friends");
-
-        private final String label;
-
-        DockTab(String label) {
-            this.label = label;
+        if (scrollY != 0.0 && maxGlobalScroll > 0.0F) {
+            globalScroll = Math.max(0.0F, Math.min(maxGlobalScroll,
+                    globalScroll - (float) scrollY * GLOBAL_SCROLL_SPEED));
+            return true;
         }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 }

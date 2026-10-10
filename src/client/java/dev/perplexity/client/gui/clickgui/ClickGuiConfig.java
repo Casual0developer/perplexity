@@ -6,7 +6,6 @@ import org.lwjgl.glfw.GLFW;
 public final class ClickGuiConfig {
     public static boolean dark = true;
     public static boolean blur = true;
-    public static boolean dock = true;
     public static int openKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
 
     private ClickGuiConfig() {
