@@ -26,9 +26,6 @@ public final class ClickGuiScreen extends Screen {
     private final Backdrop backdrop = new Backdrop();
     private final List<Panel> panels = new ArrayList<>();
     private boolean built;
-    private float[] slotX = new float[0];
-    private float[] slotY = new float[0];
-
     private float globalScroll;
     private float maxGlobalScroll;
     private int draggingPanel = -1;
@@ -53,8 +50,6 @@ public final class ClickGuiScreen extends Screen {
             // and a category is always in the same place once a module is registered for it.
             panels.add(new Panel(category, ModuleManager.get().byCategory(category), 0.0F, GlassTheme.INITIAL_Y));
         }
-        slotX = new float[panels.size()];
-        slotY = new float[panels.size()];
     }
 
     @Override
@@ -107,8 +102,6 @@ public final class ClickGuiScreen extends Screen {
                 panels.get(focusedPanel).render(lastMouseX, lastMouseY);
             }
 
-            drawHint();
-
             VGRenderer.restore();
         } finally {
             VGRenderer.endFrame();
@@ -142,10 +135,12 @@ public final class ClickGuiScreen extends Screen {
 
             for (int column = 0; column < count; column++) {
                 int index = first + column;
-                slotX[index] = startX + column * (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING);
-                slotY[index] = y;
-                if (draggingPanel != index) {
-                    panels.get(index).setPosition(slotX[index], slotY[index]);
+                Panel panel = panels.get(index);
+                float slotX = startX + column * (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING);
+                // Slots are still computed for every panel, so the grid stays put as panels are
+                // dragged out of it — but a panel the user has placed is left where they dropped it.
+                if (draggingPanel != index && !panel.isPlaced()) {
+                    panel.setPosition(slotX, y);
                 }
             }
             y += rowHeights[row] + GlassTheme.PANEL_SPACING;
@@ -155,13 +150,6 @@ public final class ClickGuiScreen extends Screen {
     private void drawWatermark() {
         VGRenderer.textLeft("perplexity", 12.0F, 16.0F, 10.0F, VGFont.semiboldFace(), 0.6F,
                 GlassTheme.headerText());
-    }
-
-    private void drawHint() {
-        String hint = "RightShift to close";
-        float textWidth = VGRenderer.textWidth(hint, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
-        VGRenderer.textLeft(hint, width - textWidth - 12.0F, 16.0F, GlassTheme.FONT_HINT,
-                VGFont.FACE, GlassTheme.textMuted());
     }
 
     // --- Input ---------------------------------------------------------------------------------
@@ -192,8 +180,11 @@ public final class ClickGuiScreen extends Screen {
 
     private void focus(int index, double mouseX, double mouseY, int button) {
         focusedPanel = index;
-        if (button == 0 && GlassTheme.inside(mouseX, mouseY, slotX[index], slotY[index],
-                GlassTheme.PANEL_WIDTH, GlassTheme.PANEL_HEADER_HEIGHT)) {
+        // Tested against where the panel actually is, not its grid slot: a placed panel no longer
+        // lives at its slot, and testing the slot would make it impossible to pick up again.
+        Panel panel = panels.get(index);
+        if (button == 0 && GlassTheme.inside(mouseX, mouseY, panel.getX(), panel.getY(),
+                panel.getWidth(), GlassTheme.PANEL_HEADER_HEIGHT)) {
             draggingPanel = index;
         }
     }
@@ -204,7 +195,13 @@ public final class ClickGuiScreen extends Screen {
             panel.mouseReleased();
         }
         if (draggingPanel >= 0 && draggingPanel < panels.size()) {
-            panels.get(draggingPanel).setPosition(slotX[draggingPanel], slotY[draggingPanel]);
+            Panel panel = panels.get(draggingPanel);
+            // Only a press that actually moved the panel pins it to its new spot. A plain click on a
+            // header must leave the panel grid-managed, or merely clicking would stop it reflowing.
+            if (panel.consumeMoved()) {
+                clampToScreen(panel);
+                panel.setPlaced(true);
+            }
         }
         draggingPanel = -1;
         return super.mouseReleased(event);
@@ -215,7 +212,21 @@ public final class ClickGuiScreen extends Screen {
         for (Panel panel : panels) {
             panel.mouseDragged(event.x(), event.y(), event.button());
         }
+        if (draggingPanel >= 0 && draggingPanel < panels.size()) {
+            clampToScreen(panels.get(draggingPanel));
+        }
         return super.mouseDragged(event, dragX, dragY);
+    }
+
+    /**
+     * Keeps a dragged panel on screen. Positions now persist, so a panel dragged past an edge would
+     * otherwise be lost with no way to grab it again.
+     */
+    private void clampToScreen(Panel panel) {
+        float maxX = Math.max(0.0F, width - panel.getWidth());
+        float maxY = Math.max(0.0F, height - GlassTheme.PANEL_HEADER_HEIGHT);
+        panel.setX(Math.max(0.0F, Math.min(maxX, panel.getX())));
+        panel.setY(Math.max(0.0F, Math.min(maxY, panel.getY())));
     }
 
     @Override

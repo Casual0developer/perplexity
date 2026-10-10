@@ -39,10 +39,63 @@ public final class Panel {
     private static final float ENABLE_SPEED = 0.30F;
     private static final float COLLAPSE_SPEED = 0.22F;
     private static final float SLIDER_SPEED = 0.45F;
+    private static final float TOGGLE_SPEED = 0.35F;
     /** Tracking applied to the category name so it reads as a header without a rule under it. */
     private static final float HEADER_TRACKING = 0.45F;
     /** Extra delay before each successive settings row starts its slide, as a fraction of expand. */
     private static final float STAGGER = 0.12F;
+
+    /** Alpha of the accent wash painted behind an enabled module row. */
+    private static final float ENABLED_ROW_ALPHA = 0.20F;
+
+    // Toggle ripple: an accent bloom that spreads out from the click point when a module is switched
+    // on (and drains back into it when switched off), then settles into the steady enabled wash.
+    private static final float RIPPLE_DURATION = 0.50F;
+    /** Peak alpha of the crest: the ring that travels out of the click point. */
+    private static final float RIPPLE_ALPHA = 0.60F;
+    /** Peak alpha of the row-wide lift, which is what makes the toggle read at a glance. */
+    private static final float RIPPLE_FLASH = 0.24F;
+    /** Fraction of the crest's alpha carried by the filled disc trailing behind it. */
+    private static final float RIPPLE_WASH = 0.45F;
+    /** Width of the leading ring, tapering as it spreads so the crest thins out over the distance. */
+    private static final float RIPPLE_STROKE = 4.5F;
+    /**
+     * How far past the row's far corner the crest travels. Beyond the row only the trailing wash and
+     * the row-wide lift show, which is what makes the wave feel like it passes through rather than
+     * stopping dead at the edge.
+     */
+    private static final float RIPPLE_REACH = 1.35F;
+
+    /**
+     * How far the settings container's edge reaches up while its module is open. This is the full
+     * module row, so a fully open container's top edge lands exactly on the row's own top edge — the
+     * same place the row's highlight starts, with the same corner radius — and the two read as one
+     * shape instead of the highlight poking out above the outline.
+     */
+    private static final float MODULE_OUTLINE_REACH = GlassTheme.MODULE_HEIGHT;
+
+    // Drag sway: a spring on the panel's tilt, driven by horizontal drag speed and aimed the same way
+    // as the drag, so a panel dragged right tips its top to the right and swings upright when released.
+    /** Tilt per unit of smoothed drag speed, and the cap it is clamped to. */
+    private static final float SWAY_PER_UNIT = 1.1F;
+    private static final float SWAY_LIMIT = 10.0F;
+
+    // Both stages are time-based rather than per-frame, so the motion is identical at any framerate.
+    /** Seconds for the drag input to catch up to the panel's real speed. */
+    private static final float SWAY_INPUT_TAU = 0.09F;
+    /** Seconds for the tilt to reach the input; sets how long the release takes to settle. */
+    private static final float SWAY_FOLLOW_TAU = 0.16F;
+    /**
+     * Damping ratio. 1.0 approaches the target without ever passing it, which reads as dead; below
+     * that it eases slightly past and swings back, which is the sway. The shudder was never caused by
+     * this — it came from sampling the drag per input event, which the per-frame read above fixes —
+     * so a little under-damping buys the character back without the jitter.
+     */
+    private static final float SWAY_DAMPING_RATIO = 0.55F;
+    /** Longest physics step. Substeps keep a slow frame from overshooting the spring. */
+    private static final float SWAY_MAX_STEP = 1.0F / 120.0F;
+    /** Longest frame the sway will integrate, so a pause cannot fling the panel. */
+    private static final float SWAY_MAX_FRAME = 0.05F;
 
     private final Category category;
     private final List<Module> modules;
@@ -52,6 +105,10 @@ public final class Panel {
     private float width = GlassTheme.PANEL_WIDTH;
 
     private boolean collapsed;
+    /** Set once the user drags the panel somewhere, so the grid stops managing its position. */
+    private boolean placed;
+    /** Set while the current press is actually relocating the panel, so a plain click does not pin it. */
+    private boolean moved;
     private float scroll;
 
     private final List<Row> rows = new ArrayList<>();
@@ -59,6 +116,22 @@ public final class Panel {
     private final Map<Module, Float> hoverAnimations = new IdentityHashMap<>();
     private final Map<Module, Float> enabledAnimations = new IdentityHashMap<>();
     private final Map<NumberSetting, Float> sliderAnimations = new IdentityHashMap<>();
+    private final Map<BooleanSetting, Float> toggleAnimations = new IdentityHashMap<>();
+
+    private float sway;
+    private float swayVelocity;
+    private float dragSway;
+    private float swaySampleX;
+    private long lastFrameNanos;
+
+    /** One in-flight toggle ripple, or nothing when {@code rippleProgress} has reached 1. */
+    private Module rippleModule;
+    private float rippleProgress = 1.0F;
+    private float rippleX;
+    private float rippleY;
+    /** Distance from the click point to the far corner of the row; the crest expires as it gets there. */
+    private float rippleRadius;
+    private boolean rippleEnabling;
     private final Map<RangeSetting, Float> rangeLowAnimations = new IdentityHashMap<>();
     private final Map<RangeSetting, Float> rangeHighAnimations = new IdentityHashMap<>();
 
@@ -112,6 +185,22 @@ public final class Panel {
         this.width = width;
     }
 
+    /** True once this panel has been dragged to a spot of its own and no longer follows the grid. */
+    public boolean isPlaced() {
+        return placed;
+    }
+
+    public void setPlaced(boolean value) {
+        this.placed = value;
+    }
+
+    /** True if the press that just ended actually moved the panel; clears the flag as it reads it. */
+    public boolean consumeMoved() {
+        boolean result = moved;
+        moved = false;
+        return result;
+    }
+
     private float contentHeight() {
         float total = 0.0F;
         for (Module module : modules) {
@@ -152,10 +241,138 @@ public final class Panel {
     // --- Rendering -----------------------------------------------------------------------------
 
     public void render(float mouseX, float mouseY) {
-        // Advance the panel-level animation before anything reads its eased value.
+        // One frame delta feeds every time-based animation, so they stay in step at any framerate.
+        float dt = frameDeltaSeconds();
         collapse = approach(collapse, collapsed ? 1.0F : 0.0F, COLLAPSE_SPEED);
+        updateSway(dt);
+        updateRipple(dt);
 
         float height = getHeight();
+        // While the panel is tilted, draw the whole thing through a rotation about its centre. The
+        // scissor inside follows the transform (vgScissor premultiplies the state matrix), so the
+        // content clip tilts with the panel rather than staying axis-aligned.
+        boolean tilted = Math.abs(sway) > 0.01F;
+        if (tilted) {
+            float pivotX = x + width * 0.5F;
+            float pivotY = y + height * 0.5F;
+            VGRenderer.save();
+            VGRenderer.translate(pivotX, pivotY);
+            VGRenderer.rotate((float) Math.toRadians(sway));
+            VGRenderer.translate(-pivotX, -pivotY);
+        }
+        try {
+            renderBody(mouseX, mouseY, height);
+        } finally {
+            if (tilted) {
+                VGRenderer.restore();
+            }
+        }
+    }
+
+    /**
+     * Runs the tilt spring. It aims with the drag direction, so dragging right tips the top of the
+     * panel to the right, and it swings back upright once the drag stops or the panel is released.
+     */
+    private void updateSway(float dt) {
+        // Sample how far the panel travelled this frame, not per input event. Mouse events arrive at
+        // an uneven rate — several in one frame, none in the next — so per-event deltas are noisy and
+        // flip sign, and a spring chasing that noise is what made the panel shudder back and forth.
+        float frameTravel = x - swaySampleX;
+        swaySampleX = x;
+        float inputFollow = 1.0F - (float) Math.exp(-dt / SWAY_INPUT_TAU);
+        dragSway += (frameTravel - dragSway) * inputFollow;
+
+        float target = draggingPanel
+                ? clamp(dragSway * SWAY_PER_UNIT, -SWAY_LIMIT, SWAY_LIMIT)
+                : 0.0F;
+
+        // Under-damped follow, so the tilt eases past the input and swings back. Sub-stepped so a
+        // long frame cannot destabilise it.
+        float omega = 2.0F / SWAY_FOLLOW_TAU;
+        float damping = 2.0F * SWAY_DAMPING_RATIO * omega;
+        float remaining = Math.min(dt, SWAY_MAX_FRAME);
+        while (remaining > 0.0F) {
+            float step = Math.min(remaining, SWAY_MAX_STEP);
+            remaining -= step;
+            float accel = omega * omega * (target - sway) - damping * swayVelocity;
+            swayVelocity += accel * step;
+            sway += swayVelocity * step;
+        }
+    }
+
+    private void updateRipple(float dt) {
+        if (rippleProgress >= 1.0F) {
+            return;
+        }
+        rippleProgress = Math.min(1.0F, rippleProgress + dt / RIPPLE_DURATION);
+        if (rippleProgress >= 1.0F) {
+            rippleModule = null;
+        }
+    }
+
+    /**
+     * Starts a toggle ripple at the click point, in coordinates relative to the module row so it stays
+     * put if the panel scrolls or is dragged while it plays.
+     */
+    private void startRipple(Module module, Row row, double mouseX, double mouseY, boolean enabling) {
+        rippleModule = module;
+        float localX = (float) mouseX - row.x();
+        float localY = (float) mouseY - row.y();
+        rippleX = localX;
+        rippleY = localY;
+        // Sized to the click: reach whichever edge is furthest away, so the crest always crosses the
+        // whole row regardless of where along it the click landed. A click at the end of the row gets
+        // a longer, faster wave than one in the middle, but the same duration.
+        float dx = Math.max(localX, row.w() - localX);
+        float dy = Math.max(localY, row.h() - localY);
+        rippleRadius = RIPPLE_REACH * (float) Math.sqrt(dx * dx + dy * dy);
+        rippleEnabling = enabling;
+        rippleProgress = 0.0F;
+    }
+
+    /**
+     * One frame of the toggle bloom. The leading ring is what the eye follows: a stroked circle that
+     * spreads out of the click point, thins as it goes and fades, while the wash behind it lifts the
+     * row as the wavefront passes. Everything ends at zero, leaving the steady enabled wash to take
+     * over, so the bloom never has to snap off.
+     */
+    private void drawRippleBloom(float cx, float cy) {
+        float radius = rippleRadius * rippleProgress;
+        if (radius <= 0.5F) {
+            return;
+        }
+
+        // Filled disc trailing the crest, so the ground the wave has already crossed fills in behind
+        // it rather than only the thin ring being lit.
+        VGRenderer.circle(cx, cy, radius,
+                GlassTheme.accent(RIPPLE_ALPHA * RIPPLE_WASH * rippleFalloff(0.5F)));
+        float stroke = RIPPLE_STROKE * (1.0F - rippleProgress * 0.55F);
+        VGRenderer.circleOutline(cx, cy, Math.max(0.5F, radius - stroke * 0.5F), stroke,
+                GlassTheme.accent(RIPPLE_ALPHA * rippleFalloff(0.7F)));
+    }
+
+    /**
+     * Strength of the bloom at this point in the sweep: held at full while the wave is travelling,
+     * then dropped over the last stretch. A straight ramp spends most of the animation already faint,
+     * which reads as a twitch rather than a wave. Still zero at the end, so the row's steady enabled
+     * wash takes over without a step. {@code hold} is the point in the sweep it starts fading from.
+     */
+    private float rippleFalloff(float hold) {
+        // Turning a module off gets the same motion in reverse, just quieter: the crest collapses back
+        // into the click point as the lift it came from drains away.
+        float strength = rippleEnabling ? 1.0F : 0.4F;
+        return clamp01((1.0F - rippleProgress) / (1.0F - hold)) * strength;
+    }
+
+    /** Seconds since the previous frame, clamped so a stalled frame cannot jump an animation. */
+    private float frameDeltaSeconds() {
+        long now = System.nanoTime();
+        float dt = lastFrameNanos == 0L ? 0.0F : (now - lastFrameNanos) / 1.0E9F;
+        lastFrameNanos = now;
+        return Math.max(0.0F, Math.min(SWAY_MAX_FRAME, dt));
+    }
+
+    private void renderBody(float mouseX, float mouseY, float height) {
         // The edge is a filled rounded rect with the surface drawn inset on top of it, not a stroked
         // outline. A stroke is tessellated into short segments, and around the corner arcs that
         // polyline sits inside the true curve, so a stroked border always renders a touch thinner at
@@ -200,6 +417,15 @@ public final class Panel {
             float hover = animate(hoverAnimations, module, hovered ? 1.0F : 0.0F, HOVER_SPEED);
             float enabled = animate(enabledAnimations, module, module.isEnabled() ? 1.0F : 0.0F, ENABLE_SPEED);
 
+            // Enabled state is carried by the row itself: an accent wash behind it, fading in with the
+            // label colour. Gives the whole row a lit look instead of a marker pinned to one edge.
+            if (enabled > 0.01F) {
+                VGRenderer.roundedRect(x + GlassTheme.PADDING * 0.5F, cursor,
+                        width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT,
+                        GlassTheme.RADIUS_SM,
+                        GlassTheme.accent(ENABLED_ROW_ALPHA * enabled * contentAlpha));
+            }
+
             if (hover > 0.01F) {
                 VGRenderer.roundedRect(x + GlassTheme.PADDING * 0.5F, cursor,
                         width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT,
@@ -207,18 +433,56 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), hover * contentAlpha));
             }
 
+            // Toggle bloom. Two parts: a row-wide lift, and a crest travelling out of the click point
+            // clipped to the row so it reads as a wavefront sweeping along it. The lift is what carries
+            // the effect — a travelling shape sets each pixel's brightness at the moment the wave
+            // passes it, so the crest alone has faded to nothing by the time it reaches the far end of
+            // the row — while the crest is what makes it read as coming *from* the click. Both are
+            // drawn before the label so the label stays crisp above them.
+            if (rippleModule == module) {
+                float rowInset = GlassTheme.PADDING * 0.5F;
+                VGRenderer.roundedRect(x + rowInset, cursor, width - GlassTheme.PADDING,
+                        GlassTheme.MODULE_HEIGHT, GlassTheme.RADIUS_SM,
+                        GlassTheme.accent(RIPPLE_FLASH * rippleFalloff(0.55F) * contentAlpha));
+                VGRenderer.save();
+                VGRenderer.intersectScissor(x + rowInset, cursor,
+                        width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT);
+                drawRippleBloom(x + rippleX, cursor + rippleY);
+                VGRenderer.restore();
+            }
+
+            // The settings container is drawn from here, above the label, rather than down with the
+            // rows it holds: that lets its edge stretch up over the module row and close around the
+            // label and chevron. Its inset already matches the module row's own wash, so the stretched
+            // outline sits flush with the row it grows out of.
+            float groupX = x + GlassTheme.GROUP_INSET;
+            float groupW = width - GlassTheme.GROUP_INSET * 2.0F;
+            float groupTop = cursor + GlassTheme.MODULE_HEIGHT;
+            float groupH = settingsHeight(module);
+            if (module.hasSettings() && expand > 0.01F && groupH > border * 2.0F + 1.0F) {
+                float groupAlpha = contentAlpha * expand;
+                // Eased out rather than linear so the edge gets up to the row early in the opening and
+                // settles. Linear would leave it crossing the middle of the row for the first frames,
+                // where it cuts across the highlight the hover and ripple draw there.
+                float outline = (1.0F - (1.0F - expand) * (1.0F - expand)) * MODULE_OUTLINE_REACH;
+                // Top corners take the module row's radius so the edge sits exactly on the row's
+                // highlight; the bottom keeps the well's wider radius.
+                VGRenderer.roundedRectVarying(groupX, groupTop - outline, groupW, groupH + outline,
+                        GlassTheme.RADIUS_SM, GlassTheme.RADIUS_SM,
+                        GlassTheme.RADIUS_MD, GlassTheme.RADIUS_MD,
+                        GlassTheme.scaleAlpha(GlassTheme.panelBorder(), groupAlpha * 0.65F));
+                VGRenderer.roundedRectVarying(groupX + border, groupTop + border,
+                        groupW - border * 2.0F, groupH - border * 2.0F,
+                        GlassTheme.RADIUS_SM - border, GlassTheme.RADIUS_SM - border,
+                        GlassTheme.RADIUS_MD - border, GlassTheme.RADIUS_MD - border,
+                        GlassTheme.scaleAlpha(GlassTheme.groupFill(), groupAlpha));
+            }
+
             Color nameColor = GlassTheme.scaleAlpha(
-                    GlassTheme.lerp(GlassTheme.textSecondary(), GlassTheme.accent(), enabled), contentAlpha);
+                    GlassTheme.lerp(GlassTheme.textSecondary(), GlassTheme.textPrimary(), enabled), contentAlpha);
             VGRenderer.textLeft(module.getName(), x + GlassTheme.PADDING + 1.0F,
                     cursor + GlassTheme.MODULE_HEIGHT / 2.0F,
                     GlassTheme.FONT_MODULE, VGFont.FACE, nameColor);
-
-            // Accent rail on the left edge: makes the on/off state readable at a glance, where the
-            // tinted label alone is easy to miss in a list.
-            if (enabled > 0.01F) {
-                VGRenderer.roundedRect(x + 3.0F, cursor + 4.0F, 2.0F, GlassTheme.MODULE_HEIGHT - 8.0F,
-                        1.0F, GlassTheme.scaleAlpha(GlassTheme.accent(), enabled * contentAlpha));
-            }
 
             if (module.hasSettings()) {
                 drawChevron(x + width - GlassTheme.PADDING - 2.0F,
@@ -228,26 +492,9 @@ public final class Panel {
 
             rows.add(new Row(TYPE_MODULE, module, null, x, cursor, width, GlassTheme.MODULE_HEIGHT));
 
-            if (expand > 0.01F && module.hasSettings()) {
-                // Group container around the settings: a recessed well plus the same edge treatment
-                // the panel uses, so the rows read as one block instead of floating lines.
-                // Full height, faded in, rather than a height that grows with the animation: the rows
-                // sit at fixed offsets, so a growing container would briefly fail to enclose them.
-                // The panel's own scissor reveals it in step with the opening module.
-                float groupAlpha = contentAlpha * expand;
-                float groupX = x + GlassTheme.GROUP_INSET;
-                float groupW = width - GlassTheme.GROUP_INSET * 2.0F;
-                float groupTop = cursor + GlassTheme.MODULE_HEIGHT;
-                float groupH = settingsHeight(module);
-                if (groupH > border * 2.0F + 1.0F) {
-                    VGRenderer.roundedRect(groupX, groupTop, groupW, groupH, GlassTheme.RADIUS_MD,
-                            GlassTheme.scaleAlpha(GlassTheme.panelBorder(), groupAlpha * 0.65F));
-                    VGRenderer.roundedRect(groupX + border, groupTop + border,
-                            groupW - border * 2.0F, groupH - border * 2.0F,
-                            GlassTheme.RADIUS_MD - border,
-                            GlassTheme.scaleAlpha(GlassTheme.groupFill(), groupAlpha));
-                }
-
+            if (module.hasSettings() && expand > 0.01F) {
+                // The rows sit at fixed offsets inside the container drawn above, so its height never
+                // animates; the panel's own scissor reveals both in step with the opening module.
                 float settingY = cursor + GlassTheme.MODULE_HEIGHT + GlassTheme.SETTING_SPACING;
                 int index = 0;
                 for (Setting setting : module.getSettings()) {
@@ -275,13 +522,17 @@ public final class Panel {
         VGRenderer.resetScissor();
     }
 
-    /** A small chevron that turns from a right arrow into a down arrow as settings open. */
+    /**
+     * A chevron that turns from a right arrow into a down arrow as settings open. Drawn as one
+     * polyline through the vertex so the bend joins cleanly and both tips get round caps — two
+     * separate strokes leave a notch at the corner and flat ends.
+     */
     private void drawChevron(float cx, float cy, float expand, Color color) {
+        float[] arrow = { -1.9F, -3.4F, 2.1F, 0.0F, -1.9F, 3.4F };
         VGRenderer.save();
         VGRenderer.translate(cx, cy);
         VGRenderer.rotate((float) Math.toRadians(90.0 * expand));
-        VGRenderer.line(-1.6F, -3.0F, 1.8F, 0.0F, 1.4F, color);
-        VGRenderer.line(1.8F, 0.0F, -1.6F, 3.0F, 1.4F, color);
+        VGRenderer.polyline(arrow, 3, 1.5F, false, color);
         VGRenderer.restore();
     }
 
@@ -306,18 +557,22 @@ public final class Panel {
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(bool.get() ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
 
-            float check = GlassTheme.CHECK_SIZE;
-            float cx = sx + sw - GlassTheme.PADDING - check;
-            float cy = sy + (GlassTheme.SETTING_HEIGHT - check) / 2.0F;
-            if (bool.get()) {
-                VGRenderer.roundedRect(cx, cy, check, check, GlassTheme.RADIUS_SM,
-                        GlassTheme.scaleAlpha(GlassTheme.accent(), alpha));
-                drawCheck(cx + check / 2.0F, cy + check / 2.0F, check,
-                        GlassTheme.scaleAlpha(GlassTheme.textOnAccent(), alpha));
-            } else {
-                VGRenderer.roundedRect(cx, cy, check, check, GlassTheme.RADIUS_SM,
-                        GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), alpha));
-            }
+            // Switch: track plus a knob that slides between the two ends.
+            float trackW = GlassTheme.TOGGLE_WIDTH;
+            float trackH = GlassTheme.TOGGLE_HEIGHT;
+            float tx = sx + sw - GlassTheme.PADDING - trackW;
+            float ty = sy + (GlassTheme.SETTING_HEIGHT - trackH) / 2.0F;
+            float on = animate(toggleAnimations, bool, bool.get() ? 1.0F : 0.0F, TOGGLE_SPEED);
+
+            VGRenderer.roundedRect(tx, ty, trackW, trackH, trackH / 2.0F,
+                    GlassTheme.scaleAlpha(GlassTheme.lerp(GlassTheme.interactiveMuted(),
+                            GlassTheme.accent(), on), alpha));
+
+            float knob = trackH - GlassTheme.TOGGLE_INSET * 2.0F;
+            float travel = trackW - knob - GlassTheme.TOGGLE_INSET * 2.0F;
+            float knobX = tx + GlassTheme.TOGGLE_INSET + travel * on + knob / 2.0F;
+            VGRenderer.circle(knobX, ty + trackH / 2.0F, knob / 2.0F,
+                    GlassTheme.scaleAlpha(GlassTheme.knob(), alpha));
             return;
         }
 
@@ -411,22 +666,6 @@ public final class Panel {
         }
     }
 
-    /**
-     * Check mark scaled to the checkbox it sits in, centred on {@code (cx, cy)}.
-     *
-     * <p>Drawn as one polyline rather than two strokes so the elbow joins cleanly, and
-     * {@link VGRenderer#polyline} rounds both caps and joins — square ends plus a butt joint at the
-     * bend are what made the old mark look broken and disconnected.</p>
-     */
-    private void drawCheck(float cx, float cy, float size, Color color) {
-        float[] points = {
-                cx - size * 0.33F, cy + size * 0.01F,
-                cx - size * 0.09F, cy + size * 0.25F,
-                cx + size * 0.33F, cy - size * 0.27F,
-        };
-        VGRenderer.polyline(points, 3, Math.max(1.0F, size * 0.15F), false, color);
-    }
-
     private static float rowHeight(Setting setting) {
         return setting instanceof NumberSetting || setting instanceof RangeSetting
                 ? GlassTheme.SLIDER_HEIGHT
@@ -465,6 +704,10 @@ public final class Panel {
         return Math.max(0.0F, Math.min(1.0F, value));
     }
 
+    private static float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private static int rowType(Setting setting) {
         if (setting instanceof BooleanSetting) {
             return TYPE_BOOL;
@@ -486,6 +729,10 @@ public final class Panel {
                 draggingPanel = true;
                 dragOffsetX = (float) mouseX - x;
                 dragOffsetY = (float) mouseY - y;
+                swaySampleX = x;
+                dragSway = 0.0F;
+                swayVelocity = 0.0F;
+                moved = false;
             } else if (button == 1) {
                 collapsed = !collapsed;
             }
@@ -501,7 +748,11 @@ public final class Panel {
                 case TYPE_MODULE -> {
                     // Reference behaviour: left click toggles, right click opens the settings.
                     if (button == 0) {
+                        boolean enabling = !row.module.isEnabled();
                         row.module.toggle();
+                        // Anchored to the click, not the row centre, so the bloom starts under the
+                        // cursor wherever along the row it landed.
+                        startRipple(row.module, row, mouseX, mouseY, enabling);
                     } else if (button == 1 && row.module.hasSettings()) {
                         row.module.setExpanded(!row.module.isExpanded());
                     }
@@ -540,8 +791,10 @@ public final class Panel {
 
     public void mouseDragged(double mouseX, double mouseY, int button) {
         if (draggingPanel) {
+            // Position only. The sway reads the resulting movement once per frame in updateSway().
             x = (float) mouseX - dragOffsetX;
             y = (float) mouseY - dragOffsetY;
+            moved = true;
             return;
         }
         if (draggingSlider != null) {

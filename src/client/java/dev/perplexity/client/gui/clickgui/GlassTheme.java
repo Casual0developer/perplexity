@@ -41,8 +41,10 @@ public final class GlassTheme {
     public static final float RADIUS_MD = 3.0F;
     public static final float RADIUS_LG = 5.0F;
 
-    /** Size of the square "check" control used by boolean settings. */
-    public static final float CHECK_SIZE = 11.0F;
+    /** Boolean settings are a switch: pill track plus a knob that slides between the ends. */
+    public static final float TOGGLE_WIDTH = 20.0F;
+    public static final float TOGGLE_HEIGHT = 12.0F;
+    public static final float TOGGLE_INSET = 2.0F;
     public static final float TRACK_HEIGHT = 4.0F;
     public static final float KNOB_SIZE = 6.0F;
 
