@@ -373,12 +373,20 @@ public final class Panel {
         }
     }
 
-    /** Check mark scaled to the checkbox it sits in. */
+    /**
+     * Check mark scaled to the checkbox it sits in, centred on {@code (cx, cy)}.
+     *
+     * <p>Drawn as one polyline rather than two strokes so the elbow joins cleanly, and
+     * {@link VGRenderer#polyline} rounds both caps and joins — square ends plus a butt joint at the
+     * bend are what made the old mark look broken and disconnected.</p>
+     */
     private void drawCheck(float cx, float cy, float size, Color color) {
-        float u = size * 0.5F;
-        float stroke = Math.max(1.0F, size * 0.16F);
-        VGRenderer.line(cx - u * 0.62F, cy + u * 0.05F, cx - u * 0.10F, cy + u * 0.55F, stroke, color);
-        VGRenderer.line(cx - u * 0.10F, cy + u * 0.55F, cx + u * 0.66F, cy - u * 0.55F, stroke, color);
+        float[] points = {
+                cx - size * 0.33F, cy + size * 0.01F,
+                cx - size * 0.09F, cy + size * 0.25F,
+                cx + size * 0.33F, cy - size * 0.27F,
+        };
+        VGRenderer.polyline(points, 3, Math.max(1.0F, size * 0.15F), false, color);
     }
 
     private static float rowHeight(Setting setting) {
