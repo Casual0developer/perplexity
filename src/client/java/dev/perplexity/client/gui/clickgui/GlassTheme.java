@@ -27,14 +27,36 @@ public final class GlassTheme {
     /** Top of a slider row's track, measured from the top of the row. */
     public static final float SLIDER_TRACK_TOP = 15.0F;
     public static final float SETTING_SPACING = 3.0F;
-    /** Inset of a setting row inside its group container; the container is {@link #GROUP_INSET} in. */
-    public static final float SETTING_INDENT = 8.0F;
+    /** Distance from a panel's edge, or a row's own rect, to the text or control inside it. */
     public static final float PADDING = 8.0F;
 
     /** Thickness of the panel edge. Drawn as two fills, never as a stroke. */
     public static final float PANEL_BORDER = 1.0F;
     /** Inset of a settings group container from the panel's sides. */
     public static final float GROUP_INSET = 4.0F;
+
+    // Derived metrics, written as expressions rather than numbers so the setting rows cannot drift off
+    // the column the module names sit on when one of the paddings above changes.
+
+    /**
+     * Left edge of the column a module's name and its settings' names share. The unit over
+     * {@link #PADDING} is optical: it squares the regular-face rows with the semibold header above
+     * them, rather than pushing them out of line with it.
+     */
+    public static final float TEXT_INSET = PADDING + 1.0F;
+    /**
+     * Inset of a setting row inside its group container. Flush with the container's inner edge —
+     * {@link #GROUP_INSET} plus the container's {@link #PANEL_BORDER} edge — so a hovered row fills
+     * the well it belongs to instead of floating inside it.
+     */
+    public static final float SETTING_INDENT = GROUP_INSET + PANEL_BORDER;
+    /**
+     * Inset of a setting row's own content (name, slider track, value, pill) from the row's rect.
+     * {@code SETTING_INDENT + SETTING_PADDING} is exactly {@link #TEXT_INSET}, so a setting's name
+     * lands on the same column as the module name above it and its track and controls line up with
+     * the row's own edges.
+     */
+    public static final float SETTING_PADDING = TEXT_INSET - SETTING_INDENT;
 
     // Deliberately small: the UI reads as flat panels, not soap bars.
     public static final float RADIUS_SM = 2.0F;

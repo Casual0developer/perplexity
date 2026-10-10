@@ -480,7 +480,7 @@ public final class Panel {
 
             Color nameColor = GlassTheme.scaleAlpha(
                     GlassTheme.lerp(GlassTheme.textSecondary(), GlassTheme.textPrimary(), enabled), contentAlpha);
-            VGRenderer.textLeft(module.getName(), x + GlassTheme.PADDING + 1.0F,
+            VGRenderer.textLeft(module.getName(), x + GlassTheme.TEXT_INSET,
                     cursor + GlassTheme.MODULE_HEIGHT / 2.0F,
                     GlassTheme.FONT_MODULE, VGFont.FACE, nameColor);
 
@@ -553,14 +553,14 @@ public final class Panel {
                 VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
             }
-            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.PADDING, labelCenterY,
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(bool.get() ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
 
             // Switch: track plus a knob that slides between the two ends.
             float trackW = GlassTheme.TOGGLE_WIDTH;
             float trackH = GlassTheme.TOGGLE_HEIGHT;
-            float tx = sx + sw - GlassTheme.PADDING - trackW;
+            float tx = sx + sw - GlassTheme.SETTING_PADDING - trackW;
             float ty = sy + (GlassTheme.SETTING_HEIGHT - trackH) / 2.0F;
             float on = animate(toggleAnimations, bool, bool.get() ? 1.0F : 0.0F, TOGGLE_SPEED);
 
@@ -581,18 +581,18 @@ public final class Panel {
                 VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
             }
-            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.PADDING, labelCenterY,
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             String value = number.display();
             float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
-            VGRenderer.textLeft(value, (sx + sw - GlassTheme.PADDING) - valueWidth, labelCenterY,
+            VGRenderer.textLeft(value, (sx + sw - GlassTheme.SETTING_PADDING) - valueWidth, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(draggingSlider == number ? GlassTheme.textPrimary() : GlassTheme.textMuted(), alpha));
 
-            float trackX = sx + GlassTheme.PADDING;
-            float trackW = sw - GlassTheme.PADDING * 2.0F;
+            float trackX = sx + GlassTheme.SETTING_PADDING;
+            float trackW = sw - GlassTheme.SETTING_PADDING * 2.0F;
             float trackH = GlassTheme.TRACK_HEIGHT;
             VGRenderer.roundedRect(trackX, trackY, trackW, trackH, trackH / 2.0F,
                     GlassTheme.scaleAlpha(GlassTheme.sliderTrack(), alpha));
@@ -614,18 +614,18 @@ public final class Panel {
                 VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
             }
-            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.PADDING, labelCenterY,
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             String value = range.display();
             float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
-            VGRenderer.textLeft(value, (sx + sw - GlassTheme.PADDING) - valueWidth, labelCenterY,
+            VGRenderer.textLeft(value, (sx + sw - GlassTheme.SETTING_PADDING) - valueWidth, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(draggingRange == range ? GlassTheme.textPrimary() : GlassTheme.textMuted(), alpha));
 
-            float trackX = sx + GlassTheme.PADDING;
-            float trackW = sw - GlassTheme.PADDING * 2.0F;
+            float trackX = sx + GlassTheme.SETTING_PADDING;
+            float trackW = sw - GlassTheme.SETTING_PADDING * 2.0F;
             float trackH = GlassTheme.TRACK_HEIGHT;
             VGRenderer.roundedRect(trackX, trackY, trackW, trackH, trackH / 2.0F,
                     GlassTheme.scaleAlpha(GlassTheme.sliderTrack(), alpha));
@@ -649,7 +649,7 @@ public final class Panel {
                 VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
             }
-            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.PADDING, labelCenterY,
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
@@ -657,7 +657,7 @@ public final class Panel {
             float pillPad = 6.0F;
             float pillWidth = VGRenderer.textWidth(label, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F) + pillPad * 2.0F;
             float pillHeight = 13.0F;
-            float pillX = (sx + sw - GlassTheme.PADDING) - pillWidth;
+            float pillX = (sx + sw - GlassTheme.SETTING_PADDING) - pillWidth;
             float pillY = sy + (GlassTheme.SETTING_HEIGHT - pillHeight) / 2.0F;
             VGRenderer.roundedRect(pillX, pillY, pillWidth, pillHeight, GlassTheme.RADIUS_SM,
                     GlassTheme.scaleAlpha(GlassTheme.accent(), 0.9F * alpha));
@@ -839,8 +839,8 @@ public final class Panel {
     }
 
     private void updateSlider(NumberSetting number, double mouseX, Row row) {
-        float trackX = row.x + GlassTheme.PADDING;
-        float trackW = row.w - GlassTheme.PADDING * 2.0F;
+        float trackX = row.x + GlassTheme.SETTING_PADDING;
+        float trackW = row.w - GlassTheme.SETTING_PADDING * 2.0F;
         if (trackW <= 0.0F) {
             return;
         }
@@ -849,16 +849,16 @@ public final class Panel {
 
     /** Picks the knob closer to the cursor so a drag grabs the end the user aimed at. */
     private static boolean nearestKnobIsHigh(RangeSetting range, double mouseX, Row row) {
-        float trackX = row.x + GlassTheme.PADDING;
-        float trackW = row.w - GlassTheme.PADDING * 2.0F;
+        float trackX = row.x + GlassTheme.SETTING_PADDING;
+        float trackW = row.w - GlassTheme.SETTING_PADDING * 2.0F;
         float lowX = trackX + trackW * range.normalizedLow();
         float highX = trackX + trackW * range.normalizedHigh();
         return Math.abs(mouseX - highX) < Math.abs(mouseX - lowX);
     }
 
     private void updateRange(RangeSetting range, double mouseX, Row row) {
-        float trackX = row.x + GlassTheme.PADDING;
-        float trackW = row.w - GlassTheme.PADDING * 2.0F;
+        float trackX = row.x + GlassTheme.SETTING_PADDING;
+        float trackW = row.w - GlassTheme.SETTING_PADDING * 2.0F;
         if (trackW <= 0.0F) {
             return;
         }
