@@ -7,6 +7,7 @@ import dev.perplexity.client.gui.clickgui.ClickGuiScreen;
 import dev.perplexity.client.module.ModuleManager;
 import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
 import dev.perplexity.client.impl.modules.movement.FlightModule;
+import dev.perplexity.client.impl.modules.player.NoFallModule;
 import dev.perplexity.client.utils.rotation.RotationManager;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -21,6 +22,7 @@ public class PerplexityClient implements ClientModInitializer {
     public void onInitializeClient() {
         ModuleManager.get().register(new AnchorMacroModule());
         ModuleManager.get().register(new FlightModule());
+        ModuleManager.get().register(new NoFallModule());
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
         // CHANGE_LOOK rotations have to be applied to the camera every frame, after the tick
