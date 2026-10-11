@@ -15,7 +15,9 @@ import dev.perplexity.client.impl.modules.movement.BoatFlyModule;
 import dev.perplexity.client.impl.modules.movement.FlightModule;
 import dev.perplexity.client.impl.modules.movement.InventoryWalkModule;
 import dev.perplexity.client.impl.modules.movement.SpeedModule;
+import dev.perplexity.client.impl.modules.player.AutoRespawnModule;
 import dev.perplexity.client.impl.modules.player.NoFallModule;
+import dev.perplexity.client.impl.modules.render.FullBrightModule;
 import dev.perplexity.client.impl.modules.render.TrueSightModule;
 import dev.perplexity.client.impl.modules.render.XRayModule;
 import dev.perplexity.client.utils.rotation.RotationManager;
@@ -39,9 +41,11 @@ public class PerplexityClient implements ClientModInitializer {
         ModuleManager.get().register(new AutoSprintModule());
         ModuleManager.get().register(new BoatFlyModule());
         ModuleManager.get().register(new NoFallModule());
+        ModuleManager.get().register(new AutoRespawnModule());
         ModuleManager.get().register(new ProtectModule());
         ModuleManager.get().register(new FastXPModule());
         ModuleManager.get().register(new TrueSightModule());
+        ModuleManager.get().register(new FullBrightModule());
         ModuleManager.get().register(new XRayModule());
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
