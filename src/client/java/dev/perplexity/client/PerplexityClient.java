@@ -6,7 +6,12 @@ import dev.perplexity.client.gui.clickgui.ClickGuiConfig;
 import dev.perplexity.client.gui.clickgui.ClickGuiScreen;
 import dev.perplexity.client.module.ModuleManager;
 import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
+import dev.perplexity.client.impl.modules.combat.AntiKnockbackModule;
+import dev.perplexity.client.impl.modules.misc.ProtectModule;
+import dev.perplexity.client.impl.modules.movement.AutoSprintModule;
 import dev.perplexity.client.impl.modules.movement.FlightModule;
+import dev.perplexity.client.impl.modules.movement.InventoryWalkModule;
+import dev.perplexity.client.impl.modules.movement.SpeedModule;
 import dev.perplexity.client.impl.modules.player.NoFallModule;
 import dev.perplexity.client.utils.rotation.RotationManager;
 
@@ -21,8 +26,13 @@ public class PerplexityClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ModuleManager.get().register(new AnchorMacroModule());
+        ModuleManager.get().register(new AntiKnockbackModule());
         ModuleManager.get().register(new FlightModule());
+        ModuleManager.get().register(new SpeedModule());
+        ModuleManager.get().register(new InventoryWalkModule());
+        ModuleManager.get().register(new AutoSprintModule());
         ModuleManager.get().register(new NoFallModule());
+        ModuleManager.get().register(new ProtectModule());
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
         // CHANGE_LOOK rotations have to be applied to the camera every frame, after the tick
