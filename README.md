@@ -31,4 +31,4 @@ build artifacts should appear in `build/libs`.
 
 ## contributing
 
-fork the repo, make your changes, test them, and open a pull request. AI contributions are fine too.
+fork the repo, make your changes, test them, and then open a pull request. AI contributions are fine too.
