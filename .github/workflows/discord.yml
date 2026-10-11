@@ -21,12 +21,10 @@ jobs:
             const repoName = payload.repository.name;
             const branch = payload.ref.replace("refs/heads/", "");
             const commits = payload.commits || [];
-            
-            // Pusher information (who triggered the push/merge)
+
+            // Fallback pusher info (the user who pushed/merged)
             const sender = payload.sender;
-            const pusher = sender?.login || "Unknown";
-            const pusherAvatar = sender?.avatar_url || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
-            const pusherUrl = sender?.html_url || `https://github.com/${pusher}`;
+            const defaultAvatar = "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
 
             if (commits.length === 0) {
               return;
@@ -41,6 +39,7 @@ jobs:
                 ref: sha
               });
 
+              // Skip merge commits
               if (commitData.data.parents.length > 1) {
                 continue;
               }
@@ -53,9 +52,22 @@ jobs:
                   ?.trim() ||
                 "No commit message";
 
-              // Actual commit author information
-              const authorName = commit.author?.name || commitData.data.commit.author.name || "Unknown";
-              const authorUsername = commitData.data.author?.login || commit.author?.username || authorName;
+              // 1. Author Name
+              const authorName =
+                commitData.data.author?.login ||
+                commit.author?.name ||
+                "Unknown";
+
+              // 2. Author Profile Picture
+              const authorAvatar =
+                commitData.data.author?.avatar_url ||
+                sender?.avatar_url ||
+                defaultAvatar;
+
+              // 3. Author Profile Link
+              const authorUrl =
+                commitData.data.author?.html_url ||
+                `https://github.com/${authorName}`;
 
               const commitUrl =
                 `https://github.com/${repo}/commit/${sha}`;
@@ -91,9 +103,9 @@ jobs:
                 embeds: [
                   {
                     author: {
-                      name: `${pusher} pushed to ${repoName}`,
-                      icon_url: pusherAvatar,
-                      url: pusherUrl
+                      name: `${authorName} pushed to ${repoName}`,
+                      icon_url: authorAvatar,
+                      url: authorUrl
                     },
 
                     description:
