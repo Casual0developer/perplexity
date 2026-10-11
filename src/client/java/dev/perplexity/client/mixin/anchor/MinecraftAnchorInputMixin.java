@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.anchor;
 
-import dev.perplexity.client.module.combat.AnchorMacroModule;
+import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
 
 import net.minecraft.client.Minecraft;
 
