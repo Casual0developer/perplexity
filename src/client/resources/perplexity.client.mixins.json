@@ -9,7 +9,7 @@
 		"anchor.MultiPlayerGameModeAnchorMixin",
 		"combat.ClientPacketListenerKnockbackMixin",
 		"combat.MinecraftAttackInvoker",
-		"misc.MinecraftAccessor",
+		"misc.MinecraftUseItemFastXPMixin",
 		"movement.KeyMappingAccessor",
 		"protect.PlayerTabOverlayProtectMixin",
 		"protect.EntityNametagProtectMixin",
