@@ -21,7 +21,12 @@ jobs:
             const repoName = payload.repository.name;
             const branch = payload.ref.replace("refs/heads/", "");
             const commits = payload.commits || [];
+            
+            // Pusher information (who triggered the push/merge)
             const sender = payload.sender;
+            const pusher = sender?.login || "Unknown";
+            const pusherAvatar = sender?.avatar_url || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
+            const pusherUrl = sender?.html_url || `https://github.com/${pusher}`;
 
             if (commits.length === 0) {
               return;
@@ -48,18 +53,9 @@ jobs:
                   ?.trim() ||
                 "No commit message";
 
-              const username =
-                sender?.login ||
-                commit.author?.name ||
-                "Unknown";
-
-              const avatar =
-                sender?.avatar_url ||
-                "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
-
-              const authorUrl =
-                sender?.html_url ||
-                `https://github.com/${username}`;
+              // Actual commit author information
+              const authorName = commit.author?.name || commitData.data.commit.author.name || "Unknown";
+              const authorUsername = commitData.data.author?.login || commit.author?.username || authorName;
 
               const commitUrl =
                 `https://github.com/${repo}/commit/${sha}`;
@@ -95,16 +91,16 @@ jobs:
                 embeds: [
                   {
                     author: {
-                      name: `${username} pushed to ${repoName}`,
-                      icon_url: avatar,
-                      url: authorUrl
+                      name: `${pusher} pushed to ${repoName}`,
+                      icon_url: pusherAvatar,
+                      url: pusherUrl
                     },
 
-                  description:
-                    `**${pushedText} to [\`${branch}\`](${branchUrl})** · ` +
-                    `[View diff](${diffUrl})\n` +
-                    `📝 **${message}**\n` +
-                    `\`${shortSha}\` · ${commitDate} · by **${username}**`,
+                    description:
+                      `**${pushedText} to [\`${branch}\`](${branchUrl})** · ` +
+                      `[View diff](${diffUrl})\n` +
+                      `📝 **${message}**\n` +
+                      `\`${shortSha}\` · ${commitDate} · by **${authorName}**`,
 
                     color: 0x800080,
 
