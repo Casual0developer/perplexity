@@ -1,4 +1,4 @@
-package dev.perplexity.client.module.combat;
+package dev.perplexity.client.impl.modules.combat;
 
 import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;

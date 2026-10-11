@@ -5,7 +5,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.perplexity.client.gui.clickgui.ClickGuiConfig;
 import dev.perplexity.client.gui.clickgui.ClickGuiScreen;
 import dev.perplexity.client.module.ModuleManager;
-import dev.perplexity.client.module.combat.AnchorMacroModule;
+import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
 import dev.perplexity.client.utils.rotation.RotationManager;
 
 import net.fabricmc.api.ClientModInitializer;
