@@ -3,6 +3,7 @@ package dev.perplexity.client.gui.clickgui;
 import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
+import dev.perplexity.client.module.setting.DropdownSetting;
 import dev.perplexity.client.module.setting.ModeSetting;
 import dev.perplexity.client.module.setting.NumberSetting;
 import dev.perplexity.client.module.setting.RangeSetting;
@@ -27,6 +28,7 @@ public final class Panel {
     private static final int TYPE_NUMBER = 2;
     private static final int TYPE_MODE = 3;
     private static final int TYPE_RANGE = 4;
+    private static final int TYPE_DROPDOWN = 5;
 
     /** Distance a settings row travels while it slides into place, in GUI units. */
     private static final float SETTINGS_SLIDE = 9.0F;
@@ -117,6 +119,7 @@ public final class Panel {
     private final Map<Module, Float> enabledAnimations = new IdentityHashMap<>();
     private final Map<NumberSetting, Float> sliderAnimations = new IdentityHashMap<>();
     private final Map<BooleanSetting, Float> toggleAnimations = new IdentityHashMap<>();
+    private final Map<DropdownSetting, Float> dropdownAnimations = new IdentityHashMap<>();
 
     private float sway;
     private float swayVelocity;
@@ -508,7 +511,7 @@ public final class Panel {
                     boolean settingHovered = GlassTheme.inside(mouseX, mouseY,
                             settingX, settingY + offsetY, settingW, rowHeight);
                     renderSetting(setting, settingX, settingY + offsetY, settingW, rowHeight,
-                            settingHovered, contentAlpha * row);
+                            settingHovered, contentAlpha * row, mouseX, mouseY);
                     rows.add(new Row(rowType(setting), module, setting, settingX,
                             settingY + offsetY, settingW, rowHeight));
                     settingY += rowHeight + GlassTheme.SETTING_SPACING;
@@ -537,7 +540,7 @@ public final class Panel {
     }
 
     private void renderSetting(Setting setting, float sx, float sy, float sw, float sh,
-                               boolean hovered, float rowAlpha) {
+                               boolean hovered, float rowAlpha, float mouseX, float mouseY) {
         float alpha = clamp01(rowAlpha);
 
         // Sliders put their label on the row's upper third to leave room for the track below it;
@@ -644,6 +647,57 @@ public final class Panel {
             return;
         }
 
+        if (setting instanceof DropdownSetting dropdown) {
+            float headerH = GlassTheme.SETTING_HEIGHT;
+            float open = animate(dropdownAnimations, dropdown,
+                    dropdown.isOpen() ? 1.0F : 0.0F, EXPAND_SPEED);
+            boolean headerHovered = hovered && mouseY < sy + headerH;
+            if (headerHovered) {
+                VGRenderer.roundedRect(sx, sy, sw, headerH, GlassTheme.RADIUS_SM,
+                        GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
+            }
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
+                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
+
+            // Current choice right-aligned ahead of the chevron, which turns down as it opens.
+            float chevronX = (sx + sw - GlassTheme.SETTING_PADDING) - 2.0F;
+            String current = dropdown.get();
+            float currentWidth = VGRenderer.textWidth(current,
+                    GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
+            VGRenderer.textLeft(current, chevronX - 8.0F - currentWidth, labelCenterY,
+                    GlassTheme.FONT_HINT, VGFont.FACE,
+                    GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
+            drawChevron(chevronX, labelCenterY, open,
+                    GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
+
+            if (dropdown.isOpen()) {
+                String[] options = dropdown.getOptions();
+                float optionTop = sy + headerH + GlassTheme.SETTING_SPACING;
+                for (int i = 0; i < options.length; i++) {
+                    float optionY = optionTop + i * headerH;
+                    boolean optionHovered = hovered
+                            && mouseY >= optionY && mouseY < optionY + headerH;
+                    boolean selected = i == dropdown.getSelected();
+                    if (optionHovered) {
+                        VGRenderer.roundedRect(sx, optionY, sw, headerH, GlassTheme.RADIUS_SM,
+                                GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
+                    }
+                    if (selected) {
+                        VGRenderer.circle(sx + GlassTheme.SETTING_PADDING + 2.5F,
+                                optionY + headerH / 2.0F, 2.0F,
+                                GlassTheme.scaleAlpha(GlassTheme.accent(), alpha));
+                    }
+                    VGRenderer.textLeft(options[i],
+                            sx + GlassTheme.SETTING_PADDING + 8.0F, optionY + headerH / 2.0F,
+                            GlassTheme.FONT_SETTING, VGFont.FACE,
+                            GlassTheme.scaleAlpha(selected || optionHovered
+                                    ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
+                }
+            }
+            return;
+        }
+
         if (setting instanceof ModeSetting mode) {
             if (hovered) {
                 VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
@@ -667,9 +721,14 @@ public final class Panel {
     }
 
     private static float rowHeight(Setting setting) {
-        return setting instanceof NumberSetting || setting instanceof RangeSetting
-                ? GlassTheme.SLIDER_HEIGHT
-                : GlassTheme.SETTING_HEIGHT;
+        if (setting instanceof NumberSetting || setting instanceof RangeSetting) {
+            return GlassTheme.SLIDER_HEIGHT;
+        }
+        if (setting instanceof DropdownSetting dropdown && dropdown.isOpen()) {
+            return GlassTheme.SETTING_HEIGHT + GlassTheme.SETTING_SPACING
+                    + dropdown.getOptions().length * GlassTheme.SETTING_HEIGHT;
+        }
+        return GlassTheme.SETTING_HEIGHT;
     }
 
     private float expand(Module module) {
@@ -717,6 +776,9 @@ public final class Panel {
         }
         if (setting instanceof RangeSetting) {
             return TYPE_RANGE;
+        }
+        if (setting instanceof DropdownSetting) {
+            return TYPE_DROPDOWN;
         }
         return TYPE_MODE;
     }
@@ -778,6 +840,28 @@ public final class Panel {
                 case TYPE_MODE -> {
                     if (row.setting instanceof ModeSetting mode && (button == 0 || button == 1)) {
                         mode.cycle();
+                    }
+                }
+                case TYPE_DROPDOWN -> {
+                    if (row.setting instanceof DropdownSetting dropdown && button == 0) {
+                        float headerH = GlassTheme.SETTING_HEIGHT;
+                        if (mouseY < row.y + headerH) {
+                            // One open dropdown per module: opening this one folds the others.
+                            boolean opening = !dropdown.isOpen();
+                            for (Setting other : row.module.getSettings()) {
+                                if (other instanceof DropdownSetting sibling && sibling != dropdown) {
+                                    sibling.setOpen(false);
+                                }
+                            }
+                            dropdown.setOpen(opening);
+                        } else if (dropdown.isOpen()) {
+                            float optionsTop = row.y + headerH + GlassTheme.SETTING_SPACING;
+                            int index = (int) ((mouseY - optionsTop) / headerH);
+                            if (index >= 0 && index < dropdown.getOptions().length) {
+                                dropdown.select(index);
+                                dropdown.setOpen(false);
+                            }
+                        }
                     }
                 }
                 default -> {
