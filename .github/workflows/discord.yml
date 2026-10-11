@@ -22,7 +22,6 @@ jobs:
             const branch = payload.ref.replace("refs/heads/", "");
             const commits = payload.commits || [];
 
-            // Fallback pusher info (the user who pushed/merged)
             const sender = payload.sender;
             const defaultAvatar = "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
 
@@ -52,22 +51,23 @@ jobs:
                   ?.trim() ||
                 "No commit message";
 
-              // 1. Author Name
+              // Prioritize raw git commit author name over linked GitHub username
               const authorName =
-                commitData.data.author?.login ||
                 commit.author?.name ||
+                commitData.data.commit.author.name ||
+                commitData.data.author?.login ||
                 "Unknown";
 
-              // 2. Author Profile Picture
+              // Fallback to GitHub profile picture if linked, otherwise fallback to sender avatar
               const authorAvatar =
                 commitData.data.author?.avatar_url ||
                 sender?.avatar_url ||
                 defaultAvatar;
 
-              // 3. Author Profile Link
-              const authorUrl =
-                commitData.data.author?.html_url ||
-                `https://github.com/${authorName}`;
+              // Link to GitHub profile if found, otherwise build a profile URL
+              const authorUrl = commitData.data.author?.html_url
+                ? commitData.data.author.html_url
+                : `https://github.com/${authorName}`;
 
               const commitUrl =
                 `https://github.com/${repo}/commit/${sha}`;
