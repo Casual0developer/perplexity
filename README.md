@@ -11,8 +11,8 @@ this is pretty much a fun sidequest. im tryna get as many people as possible to 
 requires Git and a compatible JDK.
 
 ```bash
-git clone <repository-url>
-cd <repository-folder>
+git clone https://github.com/Epikofficial/perplexity
+cd perplexity
 ```
 
 on Windows, build with:
