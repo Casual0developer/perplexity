@@ -8,6 +8,8 @@
 		"anchor.MinecraftAnchorInputMixin",
 		"anchor.MultiPlayerGameModeAnchorMixin",
 		"combat.ClientPacketListenerKnockbackMixin",
+		"combat.MinecraftAttackInvoker",
+		"misc.MinecraftAccessor",
 		"movement.KeyMappingAccessor",
 		"protect.PlayerTabOverlayProtectMixin",
 		"protect.EntityNametagProtectMixin",
@@ -20,7 +22,10 @@
 		"rotation.LivingEntityMovementRotationMixin",
 		"rotation.LocalPlayerRotationMixin",
 		"rotation.MouseHandlerRotationMixin",
-		"rotation.ServerboundUseItemPacketRotationMixin"
+		"rotation.ServerboundUseItemPacketRotationMixin",
+		"render.LivingEntityRendererTrueSightMixin",
+		"render.BlockStateBaseXRayMixin",
+		"render.BlockFaceXRayMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
