@@ -1,13 +1,17 @@
 package dev.perplexity.client.gui.clickgui;
 
 import dev.perplexity.client.module.Category;
+import dev.perplexity.client.impl.modules.ui.TabsModule;
+import dev.perplexity.client.impl.modules.ui.ClickGuiModule;
 import dev.perplexity.client.module.ModuleManager;
+import dev.perplexity.client.module.setting.KeybindSetting;
 import dev.perplexity.client.render.vg.VGFont;
 import dev.perplexity.client.render.vg.VGRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
@@ -65,7 +69,7 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        if (ClickGuiConfig.blur) {
+        if (ClickGuiModule.blurOn()) {
             renderBlurredBackground(guiGraphics);
         }
     }
@@ -103,12 +107,15 @@ public final class ClickGuiScreen extends Screen {
 
             layoutPanels(uiWidth, uiHeight);
             // Draw back-to-front with the focused panel last, so raising one never reflows the grid.
+            // Hidden tabs are skipped but keep their slots in the list, so focus and drag
+            // indices never shift under the panels that stay.
             for (int i = 0; i < panels.size(); i++) {
-                if (i != focusedPanel) {
+                if (i != focusedPanel && TabsModule.isShown(panels.get(i).getCategory())) {
                     panels.get(i).render(mouseX, mouseY);
                 }
             }
-            if (focusedPanel >= 0 && focusedPanel < panels.size()) {
+            if (focusedPanel >= 0 && focusedPanel < panels.size()
+                    && TabsModule.isShown(panels.get(focusedPanel).getCategory())) {
                 panels.get(focusedPanel).render(mouseX, mouseY);
             }
 
@@ -127,14 +134,24 @@ public final class ClickGuiScreen extends Screen {
     }
 
     private void layoutPanels(float uiWidth, float uiHeight) {
-        int columns = Math.max(1, (int) ((uiWidth - GRID_MARGIN) / (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING)));
-        columns = Math.min(columns, Math.max(1, panels.size()));
+        List<Panel> visible = new ArrayList<>();
+        for (Panel panel : panels) {
+            if (TabsModule.isShown(panel.getCategory())) {
+                visible.add(panel);
+            }
+        }
+        Panel dragging = draggingPanel >= 0 && draggingPanel < panels.size()
+                ? panels.get(draggingPanel)
+                : null;
 
-        int rows = (panels.size() + columns - 1) / columns;
+        int columns = Math.max(1, (int) ((uiWidth - GRID_MARGIN) / (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING)));
+        columns = Math.min(columns, Math.max(1, visible.size()));
+
+        int rows = (visible.size() + columns - 1) / columns;
         float[] rowHeights = new float[rows];
-        for (int i = 0; i < panels.size(); i++) {
+        for (int i = 0; i < visible.size(); i++) {
             int row = i / columns;
-            rowHeights[row] = Math.max(rowHeights[row], panels.get(i).getHeight());
+            rowHeights[row] = Math.max(rowHeights[row], visible.get(i).getHeight());
         }
 
         float totalHeight = 0.0F;
@@ -147,17 +164,16 @@ public final class ClickGuiScreen extends Screen {
         float y = GlassTheme.INITIAL_Y - globalScroll;
         for (int row = 0; row < rows; row++) {
             int first = row * columns;
-            int count = Math.min(columns, panels.size() - first);
+            int count = Math.min(columns, visible.size() - first);
             float rowWidth = count * GlassTheme.PANEL_WIDTH + (count - 1) * GlassTheme.PANEL_SPACING;
             float startX = (uiWidth - rowWidth) / 2.0F;
 
             for (int column = 0; column < count; column++) {
-                int index = first + column;
-                Panel panel = panels.get(index);
+                Panel panel = visible.get(first + column);
                 float slotX = startX + column * (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING);
                 // Slots are still computed for every panel, so the grid stays put as panels are
                 // dragged out of it — but a panel the user has placed is left where they dropped it.
-                if (draggingPanel != index && !panel.isPlaced()) {
+                if (panel != dragging && !panel.isPlaced()) {
                     panel.setPosition(slotX, y);
                 }
             }
@@ -173,6 +189,14 @@ public final class ClickGuiScreen extends Screen {
     // --- Input ---------------------------------------------------------------------------------
 
     @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (KeybindSetting.capture(event.key())) {
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         float unit = uiUnitScale();
         double mouseX = event.x() * unit;
@@ -181,12 +205,16 @@ public final class ClickGuiScreen extends Screen {
 
         // Front-to-back hit test: the focused panel gets first refusal, then the rest top-down.
         if (focusedPanel >= 0 && focusedPanel < panels.size()
+                && TabsModule.isShown(panels.get(focusedPanel).getCategory())
                 && panels.get(focusedPanel).mouseClicked(mouseX, mouseY, button)) {
             focus(focusedPanel, mouseX, mouseY, button);
             return true;
         }
         for (int i = panels.size() - 1; i >= 0; i--) {
             if (i == focusedPanel) {
+                continue;
+            }
+            if (!TabsModule.isShown(panels.get(i).getCategory())) {
                 continue;
             }
             if (panels.get(i).mouseClicked(mouseX, mouseY, button)) {
@@ -230,7 +258,9 @@ public final class ClickGuiScreen extends Screen {
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         float unit = uiUnitScale();
         for (Panel panel : panels) {
-            panel.mouseDragged(event.x() * unit, event.y() * unit, event.button());
+            if (TabsModule.isShown(panel.getCategory())) {
+                panel.mouseDragged(event.x() * unit, event.y() * unit, event.button());
+            }
         }
         if (draggingPanel >= 0 && draggingPanel < panels.size()) {
             clampToScreen(panels.get(draggingPanel));
@@ -256,11 +286,15 @@ public final class ClickGuiScreen extends Screen {
         double uiMouseX = mouseX * unit;
         double uiMouseY = mouseY * unit;
         if (focusedPanel >= 0 && focusedPanel < panels.size()
+                && TabsModule.isShown(panels.get(focusedPanel).getCategory())
                 && panels.get(focusedPanel).mouseScrolled(uiMouseX, uiMouseY, scrollY)) {
             return true;
         }
         for (int i = panels.size() - 1; i >= 0; i--) {
             if (i == focusedPanel) {
+                continue;
+            }
+            if (!TabsModule.isShown(panels.get(i).getCategory())) {
                 continue;
             }
             if (panels.get(i).mouseScrolled(uiMouseX, uiMouseY, scrollY)) {

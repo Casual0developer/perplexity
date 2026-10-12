@@ -2,7 +2,6 @@ package dev.perplexity.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-import dev.perplexity.client.gui.clickgui.ClickGuiConfig;
 import dev.perplexity.client.gui.clickgui.ClickGuiScreen;
 import dev.perplexity.client.module.ModuleManager;
 import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
@@ -20,6 +19,9 @@ import dev.perplexity.client.impl.modules.player.NoFallModule;
 import dev.perplexity.client.impl.modules.render.FullBrightModule;
 import dev.perplexity.client.impl.modules.render.TrueSightModule;
 import dev.perplexity.client.impl.modules.render.XRayModule;
+import dev.perplexity.client.impl.modules.ui.ClickGuiModule;
+import dev.perplexity.client.impl.modules.ui.NotificationsModule;
+import dev.perplexity.client.impl.modules.ui.TabsModule;
 import dev.perplexity.client.utils.rotation.RotationManager;
 
 import net.fabricmc.api.ClientModInitializer;
@@ -47,6 +49,11 @@ public class PerplexityClient implements ClientModInitializer {
         ModuleManager.get().register(new TrueSightModule());
         ModuleManager.get().register(new FullBrightModule());
         ModuleManager.get().register(new XRayModule());
+        ModuleManager.get().register(new NotificationsModule());
+        ModuleManager.get().register(new ClickGuiModule());
+        TabsModule tabs = new TabsModule();
+        tabs.setEnabled(true);
+        ModuleManager.get().register(tabs);
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
         // CHANGE_LOOK rotations have to be applied to the camera every frame, after the tick
@@ -60,7 +67,7 @@ public class PerplexityClient implements ClientModInitializer {
         ModuleManager.get().tick();
         RotationManager.tick(minecraft);
 
-        int key = ClickGuiConfig.openKey;
+        int key = ClickGuiModule.openKey();
         if (key == 0 || minecraft.getWindow() == null) {
             return;
         }

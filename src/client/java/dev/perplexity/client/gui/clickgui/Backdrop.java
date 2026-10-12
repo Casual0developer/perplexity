@@ -17,10 +17,10 @@ import java.util.Random;
  * field.</p>
  */
 final class Backdrop {
-    private static final int MIN_FLAKES = 120;
-    private static final int MAX_FLAKES = 240;
+    private static final int MIN_FLAKES = 50;
+    private static final int MAX_FLAKES = 110;
     /** Roughly one flake per this many square GUI units, clamped to the range above. */
-    private static final float AREA_PER_FLAKE = 3800.0F;
+    private static final float AREA_PER_FLAKE = 9000.0F;
     private static final float MAX_DELTA_SECONDS = 0.05F;
     private static final float SPAWN_MARGIN = 24.0F;
 
@@ -45,9 +45,9 @@ final class Backdrop {
 
     private void drawWashes() {
         float span = Math.max(width, height);
-        VGRenderer.radialGradient(width * 0.20F, -span * 0.28F, 0.0F, span * 0.78F,
+        VGRenderer.radialGradient(width * 0.20F, -span * 0.28F, 0.0F, span * 0.60F,
                 GlassTheme.glow(), GlassTheme.glowFade());
-        VGRenderer.radialGradient(width * 0.84F, height + span * 0.22F, 0.0F, span * 0.72F,
+        VGRenderer.radialGradient(width * 0.84F, height + span * 0.22F, 0.0F, span * 0.55F,
                 GlassTheme.glowSoft(), GlassTheme.glowFade());
     }
 

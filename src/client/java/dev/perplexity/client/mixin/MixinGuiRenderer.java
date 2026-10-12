@@ -3,6 +3,7 @@ package dev.perplexity.client.mixin;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 
 import dev.perplexity.client.gui.clickgui.ClickGuiOverlay;
+import dev.perplexity.client.gui.Toasts;
 
 import net.minecraft.client.gui.render.GuiRenderer;
 
@@ -20,5 +21,6 @@ public class MixinGuiRenderer {
     @Inject(method = "render(Lcom/mojang/blaze3d/buffers/GpuBufferSlice;)V", at = @At("TAIL"))
     private void perplexity$renderClickGui(GpuBufferSlice buffer, CallbackInfo callbackInfo) {
         ClickGuiOverlay.render();
+        Toasts.render();
     }
 }
