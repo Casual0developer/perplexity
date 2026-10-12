@@ -1,0 +1,10 @@
+{
+  "perplexity:click": {
+    "sounds": [
+      {
+        "name": "perplexity:click",
+        "stream": false
+      }
+    ]
+  }
+}

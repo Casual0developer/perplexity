@@ -26,6 +26,16 @@ public final class DropdownSetting extends Setting {
         return options.clone();
     }
 
+    /** Allocation-free access for per-frame loops; the option list never changes. */
+    public int optionCount() {
+        return options.length;
+    }
+
+    /** Allocation-free access for per-frame loops; the option list never changes. */
+    public String option(int index) {
+        return options[index];
+    }
+
     public int getSelected() {
         return selected;
     }

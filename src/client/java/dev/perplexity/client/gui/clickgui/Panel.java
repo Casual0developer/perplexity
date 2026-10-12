@@ -4,6 +4,8 @@ import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
 import dev.perplexity.client.module.setting.DropdownSetting;
+import dev.perplexity.client.module.setting.KeybindSetting;
+import dev.perplexity.client.module.setting.ToggleListSetting;
 import dev.perplexity.client.module.setting.ModeSetting;
 import dev.perplexity.client.module.setting.NumberSetting;
 import dev.perplexity.client.module.setting.RangeSetting;
@@ -29,6 +31,11 @@ public final class Panel {
     private static final int TYPE_MODE = 3;
     private static final int TYPE_RANGE = 4;
     private static final int TYPE_DROPDOWN = 5;
+    private static final int TYPE_KEYBIND = 6;
+    private static final int TYPE_TOGGLE_LIST = 7;
+
+    /** Clickable width of the "+" collapse glyph at a panel header's right edge. */
+    private static final float PLUS_BUTTON_WIDTH = 22.0F;
 
     /** Distance a settings row travels while it slides into place, in GUI units. */
     private static final float SETTINGS_SLIDE = 9.0F;
@@ -676,9 +683,9 @@ public final class Panel {
                     GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
 
             if (dropdown.isOpen()) {
-                String[] options = dropdown.getOptions();
+                int optionCount = dropdown.optionCount();
                 float optionTop = sy + headerH + GlassTheme.SETTING_SPACING;
-                for (int i = 0; i < options.length; i++) {
+                for (int i = 0; i < optionCount; i++) {
                     float optionY = optionTop + i * headerH;
                     boolean optionHovered = hovered
                             && mouseY >= optionY && mouseY < optionY + headerH;
@@ -692,10 +699,88 @@ public final class Panel {
                                 optionY + headerH / 2.0F, 2.0F,
                                 GlassTheme.scaleAlpha(GlassTheme.accent(), alpha));
                     }
-                    VGRenderer.textLeft(options[i],
+                    VGRenderer.textLeft(dropdown.option(i),
                             sx + GlassTheme.SETTING_PADDING + 8.0F, optionY + headerH / 2.0F,
                             GlassTheme.FONT_SETTING, VGFont.FACE,
                             GlassTheme.scaleAlpha(selected || optionHovered
+                                    ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
+                }
+            }
+            return;
+        }
+
+        if (setting instanceof KeybindSetting keybind) {
+            if (hovered) {
+                VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
+                        GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
+            }
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
+                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
+
+            String label = keybind.displayName();
+            float pillPad = 6.0F;
+            float pillWidth = VGRenderer.textWidth(label, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F) + pillPad * 2.0F;
+            float pillHeight = 13.0F;
+            float pillX = (sx + sw - GlassTheme.SETTING_PADDING) - pillWidth;
+            float pillY = sy + (GlassTheme.SETTING_HEIGHT - pillHeight) / 2.0F;
+            VGRenderer.roundedRect(pillX, pillY, pillWidth, pillHeight, GlassTheme.RADIUS_SM,
+                    GlassTheme.scaleAlpha(keybind.isListening() ? GlassTheme.accent()
+                            : GlassTheme.interactiveMuted(), 0.9F * alpha));
+            VGRenderer.textCentered(label, pillX + pillWidth / 2.0F, pillY + pillHeight / 2.0F,
+                    GlassTheme.FONT_HINT, VGFont.FACE,
+                    GlassTheme.scaleAlpha(keybind.isListening() ? GlassTheme.textOnAccent()
+                            : GlassTheme.textMuted(), alpha));
+            return;
+        }
+
+        if (setting instanceof ToggleListSetting toggle) {
+            float headerH = GlassTheme.SETTING_HEIGHT;
+            boolean headerHovered = hovered && mouseY < sy + headerH;
+            if (headerHovered) {
+                VGRenderer.roundedRect(sx, sy, sw, headerH, GlassTheme.RADIUS_SM,
+                        GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
+            }
+            VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
+                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
+
+            // On-count ahead of the chevron, which turns down as the list opens.
+            float chevronX = (sx + sw - GlassTheme.SETTING_PADDING) - 2.0F;
+            String count = toggle.onCount() + "/" + toggle.getOptions().length;
+            float countWidth = VGRenderer.textWidth(count,
+                    GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
+            VGRenderer.textLeft(count, chevronX - 8.0F - countWidth, labelCenterY,
+                    GlassTheme.FONT_HINT, VGFont.FACE,
+                    GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
+            drawChevron(chevronX, labelCenterY, toggle.isOpen() ? 1.0F : 0.0F,
+                    GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
+
+            if (toggle.isOpen()) {
+                int optionCount = toggle.optionCount();
+                float optionTop = sy + headerH + GlassTheme.SETTING_SPACING;
+                for (int i = 0; i < optionCount; i++) {
+                    float optionY = optionTop + i * headerH;
+                    boolean optionHovered = hovered
+                            && mouseY >= optionY && mouseY < optionY + headerH;
+                    boolean on = toggle.isOn(i);
+                    if (optionHovered) {
+                        VGRenderer.roundedRect(sx, optionY, sw, headerH, GlassTheme.RADIUS_SM,
+                                GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
+                    }
+                    float box = 9.0F;
+                    float boxX = sx + GlassTheme.SETTING_PADDING;
+                    float boxY = optionY + (headerH - box) / 2.0F;
+                    if (on) {
+                        VGRenderer.roundedRect(boxX, boxY, box, box, 2.0F,
+                                GlassTheme.scaleAlpha(GlassTheme.accent(), 0.95F * alpha));
+                    } else {
+                        VGRenderer.roundedRect(boxX, boxY, box, box, 2.0F,
+                                GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), 0.7F * alpha));
+                    }
+                    VGRenderer.textLeft(toggle.option(i), boxX + box + 5.0F, optionY + headerH / 2.0F,
+                            GlassTheme.FONT_SETTING, VGFont.FACE,
+                            GlassTheme.scaleAlpha(on || optionHovered
                                     ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
                 }
             }
@@ -761,7 +846,11 @@ public final class Panel {
         }
         if (setting instanceof DropdownSetting dropdown && dropdown.isOpen()) {
             return GlassTheme.SETTING_HEIGHT + GlassTheme.SETTING_SPACING
-                    + dropdown.getOptions().length * GlassTheme.SETTING_HEIGHT;
+                    + dropdown.optionCount() * GlassTheme.SETTING_HEIGHT;
+        }
+        if (setting instanceof ToggleListSetting toggle && toggle.isOpen()) {
+            return GlassTheme.SETTING_HEIGHT + GlassTheme.SETTING_SPACING
+                    + toggle.optionCount() * GlassTheme.SETTING_HEIGHT;
         }
         return GlassTheme.SETTING_HEIGHT;
     }
@@ -815,6 +904,12 @@ public final class Panel {
         if (setting instanceof DropdownSetting) {
             return TYPE_DROPDOWN;
         }
+        if (setting instanceof KeybindSetting) {
+            return TYPE_KEYBIND;
+        }
+        if (setting instanceof ToggleListSetting) {
+            return TYPE_TOGGLE_LIST;
+        }
         return TYPE_MODE;
     }
 
@@ -823,13 +918,18 @@ public final class Panel {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (GlassTheme.inside(mouseX, mouseY, x, y, width, GlassTheme.PANEL_HEADER_HEIGHT)) {
             if (button == 0) {
-                draggingPanel = true;
-                dragOffsetX = (float) mouseX - x;
-                dragOffsetY = (float) mouseY - y;
-                swaySampleX = x;
-                dragSway = 0.0F;
-                swayVelocity = 0.0F;
-                moved = false;
+                if (mouseX >= x + width - PLUS_BUTTON_WIDTH) {
+                    // The "+" glyph: left-clicking it folds the panel to its header.
+                    collapsed = !collapsed;
+                } else {
+                    draggingPanel = true;
+                    dragOffsetX = (float) mouseX - x;
+                    dragOffsetY = (float) mouseY - y;
+                    swaySampleX = x;
+                    dragSway = 0.0F;
+                    swayVelocity = 0.0F;
+                    moved = false;
+                }
             } else if (button == 1) {
                 collapsed = !collapsed;
             }
@@ -882,6 +982,31 @@ public final class Panel {
                         }
                     }
                 }
+                case TYPE_KEYBIND -> {
+                    if (row.setting instanceof KeybindSetting keybind && button == 0) {
+                        KeybindSetting.listen(keybind);
+                    }
+                }
+                case TYPE_TOGGLE_LIST -> {
+                    if (row.setting instanceof ToggleListSetting toggle && button == 0) {
+                        float headerH = GlassTheme.SETTING_HEIGHT;
+                        if (mouseY < row.y + headerH) {
+                            boolean opening = !toggle.isOpen();
+                            for (Setting other : row.module.getSettings()) {
+                                if (other instanceof ToggleListSetting sibling && sibling != toggle) {
+                                    sibling.setOpen(false);
+                                }
+                            }
+                            toggle.setOpen(opening);
+                        } else if (toggle.isOpen()) {
+                            float optionsTop = row.y + headerH + GlassTheme.SETTING_SPACING;
+                            int index = (int) ((mouseY - optionsTop) / headerH);
+                            if (index >= 0 && index < toggle.optionCount()) {
+                                toggle.toggle(index);
+                            }
+                        }
+                    }
+                }
                 case TYPE_DROPDOWN -> {
                     if (row.setting instanceof DropdownSetting dropdown && button == 0) {
                         float headerH = GlassTheme.SETTING_HEIGHT;
@@ -897,7 +1022,7 @@ public final class Panel {
                         } else if (dropdown.isOpen()) {
                             float optionsTop = row.y + headerH + GlassTheme.SETTING_SPACING;
                             int index = (int) ((mouseY - optionsTop) / headerH);
-                            if (index >= 0 && index < dropdown.getOptions().length) {
+                            if (index >= 0 && index < dropdown.optionCount()) {
                                 dropdown.select(index);
                                 dropdown.setOpen(false);
                             }

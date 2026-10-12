@@ -1,5 +1,6 @@
 package dev.perplexity.client.module;
 
+import dev.perplexity.client.gui.Toasts;
 import dev.perplexity.client.module.setting.Setting;
 
 import java.util.ArrayList;
@@ -11,6 +12,8 @@ public abstract class Module {
     private final String description;
     private final Category category;
     private final List<Setting> settings = new ArrayList<>();
+    /** Cached unmodifiable view: settings are all added during construction, so this never goes stale. */
+    private List<Setting> settingsView;
 
     private boolean enabled;
     private int keybind;
@@ -40,7 +43,10 @@ public abstract class Module {
     }
 
     public List<Setting> getSettings() {
-        return Collections.unmodifiableList(settings);
+        if (settingsView == null) {
+            settingsView = Collections.unmodifiableList(settings);
+        }
+        return settingsView;
     }
 
     public boolean hasSettings() {
@@ -56,6 +62,7 @@ public abstract class Module {
             return;
         }
         this.enabled = value;
+        Toasts.push(name, value);
         if (value) {
             onEnable();
         } else {
