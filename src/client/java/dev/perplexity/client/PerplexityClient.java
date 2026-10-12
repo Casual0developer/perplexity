@@ -6,6 +6,7 @@ import dev.perplexity.client.gui.clickgui.ClickGuiScreen;
 import dev.perplexity.client.module.ModuleManager;
 import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
 import dev.perplexity.client.impl.modules.combat.AntiKnockbackModule;
+import dev.perplexity.client.impl.modules.combat.AutoClickerModule;
 import dev.perplexity.client.impl.modules.combat.TriggerbotModule;
 import dev.perplexity.client.impl.modules.misc.FastXPModule;
 import dev.perplexity.client.impl.modules.misc.ProtectModule;
@@ -17,6 +18,7 @@ import dev.perplexity.client.impl.modules.movement.SpeedModule;
 import dev.perplexity.client.impl.modules.player.AutoRespawnModule;
 import dev.perplexity.client.impl.modules.player.NoFallModule;
 import dev.perplexity.client.impl.modules.render.FullBrightModule;
+import dev.perplexity.client.impl.modules.render.NoHurtCamModule;
 import dev.perplexity.client.impl.modules.render.TrueSightModule;
 import dev.perplexity.client.impl.modules.render.XRayModule;
 import dev.perplexity.client.impl.modules.ui.ClickGuiModule;
@@ -36,6 +38,7 @@ public class PerplexityClient implements ClientModInitializer {
     public void onInitializeClient() {
         ModuleManager.get().register(new AnchorMacroModule());
         ModuleManager.get().register(new AntiKnockbackModule());
+        ModuleManager.get().register(new AutoClickerModule());
         ModuleManager.get().register(new TriggerbotModule());
         ModuleManager.get().register(new FlightModule());
         ModuleManager.get().register(new SpeedModule());
@@ -48,6 +51,7 @@ public class PerplexityClient implements ClientModInitializer {
         ModuleManager.get().register(new FastXPModule());
         ModuleManager.get().register(new TrueSightModule());
         ModuleManager.get().register(new FullBrightModule());
+        ModuleManager.get().register(new NoHurtCamModule());
         ModuleManager.get().register(new XRayModule());
         ModuleManager.get().register(new NotificationsModule());
         ModuleManager.get().register(new ClickGuiModule());

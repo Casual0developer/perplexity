@@ -521,8 +521,11 @@ public final class Panel {
                     float settingW = width - GlassTheme.SETTING_INDENT * 2.0F;
                     boolean settingHovered = GlassTheme.inside(mouseX, mouseY,
                             settingX, settingY + offsetY, settingW, rowHeight);
-                    renderSetting(setting, settingX, settingY + offsetY, settingW, rowHeight,
-                            settingHovered, contentAlpha * row, mouseX, mouseY);
+                    float settingAlpha = contentAlpha * row;
+                    if (settingAlpha > 0.02F) {
+                        renderSetting(setting, settingX, settingY + offsetY, settingW, rowHeight,
+                                settingHovered, settingAlpha, mouseX, mouseY);
+                    }
                     rows.add(new Row(rowType(setting), module, setting, settingX,
                             settingY + offsetY, settingW, rowHeight));
                     settingY += rowHeight + GlassTheme.SETTING_SPACING;

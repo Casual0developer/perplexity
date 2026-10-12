@@ -26,7 +26,8 @@
 		"render.LivingEntityRendererTrueSightMixin",
 		"render.BlockStateBaseXRayMixin",
 		"render.BlockFaceXRayMixin",
-		"render.BlockEmissionXRayMixin"
+		"render.BlockEmissionXRayMixin",
+		"render.GameRendererNoHurtCamMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
