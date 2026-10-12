@@ -25,7 +25,6 @@ jobs:
             const sender = payload.sender;
             const defaultAvatar = "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
 
-            // Cache looked-up user profiles so we don't spam the GitHub API
             const userCache = {};
 
             if (commits.length === 0) {
@@ -54,36 +53,41 @@ jobs:
                   ?.trim() ||
                 "No commit message";
 
-              // Get the raw author name from the commit
-              const authorName =
+              // Display Name shown in text (e.g. "Epik" or "casual0developer")
+              const displayName =
                 commit.author?.name ||
                 commitData.data.commit.author.name ||
                 "Unknown";
 
-              let authorAvatar = defaultAvatar;
-              let authorUrl = `https://github.com/${authorName}`;
+              // Exact GitHub handle (e.g. "Epikofficial")
+              const githubUsername =
+                commitData.data.author?.login ||
+                commit.author?.username ||
+                displayName;
 
-              // Try searching GitHub for the exact username to get the right PFP & link
-              if (authorName !== "Unknown") {
-                if (userCache[authorName]) {
-                  authorAvatar = userCache[authorName].avatar_url;
-                  authorUrl = userCache[authorName].html_url;
+              let authorAvatar = defaultAvatar;
+              let authorUrl = `https://github.com/${githubUsername}`;
+
+              // Get PFP & URL using the exact GitHub handle
+              if (githubUsername && githubUsername !== "Unknown") {
+                if (userCache[githubUsername]) {
+                  authorAvatar = userCache[githubUsername].avatar_url;
+                  authorUrl = userCache[githubUsername].html_url;
                 } else {
                   try {
                     const userResponse = await github.rest.users.getByUsername({
-                      username: authorName
+                      username: githubUsername
                     });
                     if (userResponse.data) {
                       authorAvatar = userResponse.data.avatar_url;
                       authorUrl = userResponse.data.html_url;
-                      userCache[authorName] = {
+                      userCache[githubUsername] = {
                         avatar_url: authorAvatar,
                         html_url: authorUrl
                       };
                     }
                   } catch (e) {
-                    // Fallback to sender's avatar if user lookup fails
-                    authorAvatar = sender?.avatar_url || defaultAvatar;
+                    authorAvatar = commitData.data.author?.avatar_url || sender?.avatar_url || defaultAvatar;
                   }
                 }
               }
@@ -122,7 +126,7 @@ jobs:
                 embeds: [
                   {
                     author: {
-                      name: `${authorName} pushed to ${repoName}`,
+                      name: `${displayName} pushed to ${repoName}`,
                       icon_url: authorAvatar,
                       url: authorUrl
                     },
@@ -131,7 +135,7 @@ jobs:
                       `**${pushedText} to [\`${branch}\`](${branchUrl})** · ` +
                       `[View diff](${diffUrl})\n` +
                       `📝 **${message}**\n` +
-                      `\`${shortSha}\` · ${commitDate} · by **${authorName}**`,
+                      `\`${shortSha}\` · ${commitDate} · by **${displayName}**`,
 
                     color: 0x800080,
 
