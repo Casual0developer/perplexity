@@ -25,6 +25,9 @@ jobs:
             const sender = payload.sender;
             const defaultAvatar = "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png";
 
+            // Cache looked-up user profiles so we don't spam the GitHub API
+            const userCache = {};
+
             if (commits.length === 0) {
               return;
             }
@@ -51,23 +54,39 @@ jobs:
                   ?.trim() ||
                 "No commit message";
 
-              // Prioritize raw git commit author name over linked GitHub username
+              // Get the raw author name from the commit
               const authorName =
                 commit.author?.name ||
                 commitData.data.commit.author.name ||
-                commitData.data.author?.login ||
                 "Unknown";
 
-              // Fallback to GitHub profile picture if linked, otherwise fallback to sender avatar
-              const authorAvatar =
-                commitData.data.author?.avatar_url ||
-                sender?.avatar_url ||
-                defaultAvatar;
+              let authorAvatar = defaultAvatar;
+              let authorUrl = `https://github.com/${authorName}`;
 
-              // Link to GitHub profile if found, otherwise build a profile URL
-              const authorUrl = commitData.data.author?.html_url
-                ? commitData.data.author.html_url
-                : `https://github.com/${authorName}`;
+              // Try searching GitHub for the exact username to get the right PFP & link
+              if (authorName !== "Unknown") {
+                if (userCache[authorName]) {
+                  authorAvatar = userCache[authorName].avatar_url;
+                  authorUrl = userCache[authorName].html_url;
+                } else {
+                  try {
+                    const userResponse = await github.rest.users.getByUsername({
+                      username: authorName
+                    });
+                    if (userResponse.data) {
+                      authorAvatar = userResponse.data.avatar_url;
+                      authorUrl = userResponse.data.html_url;
+                      userCache[authorName] = {
+                        avatar_url: authorAvatar,
+                        html_url: authorUrl
+                      };
+                    }
+                  } catch (e) {
+                    // Fallback to sender's avatar if user lookup fails
+                    authorAvatar = sender?.avatar_url || defaultAvatar;
+                  }
+                }
+              }
 
               const commitUrl =
                 `https://github.com/${repo}/commit/${sha}`;
