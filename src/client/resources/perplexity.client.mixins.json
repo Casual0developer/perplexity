@@ -25,7 +25,8 @@
 		"rotation.ServerboundUseItemPacketRotationMixin",
 		"render.LivingEntityRendererTrueSightMixin",
 		"render.BlockStateBaseXRayMixin",
-		"render.BlockFaceXRayMixin"
+		"render.BlockFaceXRayMixin",
+		"render.BlockEmissionXRayMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

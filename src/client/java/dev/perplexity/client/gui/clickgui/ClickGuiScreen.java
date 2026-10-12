@@ -22,6 +22,12 @@ import java.util.List;
 public final class ClickGuiScreen extends Screen {
     private static final float GRID_MARGIN = 24.0F;
     private static final float GLOBAL_SCROLL_SPEED = 60.0F;
+    /**
+     * GUI scale the interface is authored against. Rendering and every hit-test normalize
+     * into this space, so the menu keeps identical size and layout whether the game's GUI
+     * scale is 1, 2, 3 or Auto.
+     */
+    private static final float UI_REFERENCE_SCALE = 2.0F;
 
     private final Backdrop backdrop = new Backdrop();
     private final List<Panel> panels = new ArrayList<>();
@@ -79,27 +85,31 @@ public final class ClickGuiScreen extends Screen {
 
     /** Draws the whole ClickGUI with NanoVG; must run with the main render target bound. */
     public void drawVg() {
-        float scale = Minecraft.getInstance().getWindow().getGuiScale();
+        float unit = uiUnitScale();
+        float uiWidth = width * unit;
+        float uiHeight = height * unit;
+        float mouseX = lastMouseX * unit;
+        float mouseY = lastMouseY * unit;
         if (!VGRenderer.beginFrame()) {
             return;
         }
         try {
             VGRenderer.save();
-            VGRenderer.scale(scale, scale);
+            VGRenderer.scale(UI_REFERENCE_SCALE, UI_REFERENCE_SCALE);
 
-            VGRenderer.rect(0.0F, 0.0F, width, height, GlassTheme.scrim());
-            backdrop.render(width, height);
+            VGRenderer.rect(0.0F, 0.0F, uiWidth, uiHeight, GlassTheme.scrim());
+            backdrop.render(uiWidth, uiHeight);
             drawWatermark();
 
-            layoutPanels();
+            layoutPanels(uiWidth, uiHeight);
             // Draw back-to-front with the focused panel last, so raising one never reflows the grid.
             for (int i = 0; i < panels.size(); i++) {
                 if (i != focusedPanel) {
-                    panels.get(i).render(lastMouseX, lastMouseY);
+                    panels.get(i).render(mouseX, mouseY);
                 }
             }
             if (focusedPanel >= 0 && focusedPanel < panels.size()) {
-                panels.get(focusedPanel).render(lastMouseX, lastMouseY);
+                panels.get(focusedPanel).render(mouseX, mouseY);
             }
 
             VGRenderer.restore();
@@ -108,8 +118,16 @@ public final class ClickGuiScreen extends Screen {
         }
     }
 
-    private void layoutPanels() {
-        int columns = Math.max(1, (int) ((width - GRID_MARGIN) / (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING)));
+    /**
+     * Converts a vanilla GUI-unit coordinate into UI space. Vanilla units shrink as the GUI
+     * scale grows; multiplying back up keeps the menu fixed to the reference scale.
+     */
+    private static float uiUnitScale() {
+        return (float) (Minecraft.getInstance().getWindow().getGuiScale() / UI_REFERENCE_SCALE);
+    }
+
+    private void layoutPanels(float uiWidth, float uiHeight) {
+        int columns = Math.max(1, (int) ((uiWidth - GRID_MARGIN) / (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING)));
         columns = Math.min(columns, Math.max(1, panels.size()));
 
         int rows = (panels.size() + columns - 1) / columns;
@@ -123,7 +141,7 @@ public final class ClickGuiScreen extends Screen {
         for (float rowHeight : rowHeights) {
             totalHeight += rowHeight + GlassTheme.PANEL_SPACING;
         }
-        maxGlobalScroll = Math.max(0.0F, (GlassTheme.INITIAL_Y + totalHeight) - height + 20.0F);
+        maxGlobalScroll = Math.max(0.0F, (GlassTheme.INITIAL_Y + totalHeight) - uiHeight + 20.0F);
         globalScroll = Math.max(0.0F, Math.min(globalScroll, maxGlobalScroll));
 
         float y = GlassTheme.INITIAL_Y - globalScroll;
@@ -131,7 +149,7 @@ public final class ClickGuiScreen extends Screen {
             int first = row * columns;
             int count = Math.min(columns, panels.size() - first);
             float rowWidth = count * GlassTheme.PANEL_WIDTH + (count - 1) * GlassTheme.PANEL_SPACING;
-            float startX = (width - rowWidth) / 2.0F;
+            float startX = (uiWidth - rowWidth) / 2.0F;
 
             for (int column = 0; column < count; column++) {
                 int index = first + column;
@@ -156,8 +174,9 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        double mouseX = event.x();
-        double mouseY = event.y();
+        float unit = uiUnitScale();
+        double mouseX = event.x() * unit;
+        double mouseY = event.y() * unit;
         int button = event.button();
 
         // Front-to-back hit test: the focused panel gets first refusal, then the rest top-down.
@@ -209,8 +228,9 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        float unit = uiUnitScale();
         for (Panel panel : panels) {
-            panel.mouseDragged(event.x(), event.y(), event.button());
+            panel.mouseDragged(event.x() * unit, event.y() * unit, event.button());
         }
         if (draggingPanel >= 0 && draggingPanel < panels.size()) {
             clampToScreen(panels.get(draggingPanel));
@@ -223,23 +243,27 @@ public final class ClickGuiScreen extends Screen {
      * otherwise be lost with no way to grab it again.
      */
     private void clampToScreen(Panel panel) {
-        float maxX = Math.max(0.0F, width - panel.getWidth());
-        float maxY = Math.max(0.0F, height - GlassTheme.PANEL_HEADER_HEIGHT);
+        float unit = uiUnitScale();
+        float maxX = Math.max(0.0F, width * unit - panel.getWidth());
+        float maxY = Math.max(0.0F, height * unit - GlassTheme.PANEL_HEADER_HEIGHT);
         panel.setX(Math.max(0.0F, Math.min(maxX, panel.getX())));
         panel.setY(Math.max(0.0F, Math.min(maxY, panel.getY())));
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        float unit = uiUnitScale();
+        double uiMouseX = mouseX * unit;
+        double uiMouseY = mouseY * unit;
         if (focusedPanel >= 0 && focusedPanel < panels.size()
-                && panels.get(focusedPanel).mouseScrolled(mouseX, mouseY, scrollY)) {
+                && panels.get(focusedPanel).mouseScrolled(uiMouseX, uiMouseY, scrollY)) {
             return true;
         }
         for (int i = panels.size() - 1; i >= 0; i--) {
             if (i == focusedPanel) {
                 continue;
             }
-            if (panels.get(i).mouseScrolled(mouseX, mouseY, scrollY)) {
+            if (panels.get(i).mouseScrolled(uiMouseX, uiMouseY, scrollY)) {
                 return true;
             }
         }

@@ -3,6 +3,7 @@ package dev.perplexity.client.impl.modules.render;
 import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
+import dev.perplexity.client.utils.NightVision;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.block.Block;
@@ -59,6 +60,7 @@ public final class XRayModule extends Module {
     private final BooleanSetting extras = add(new BooleanSetting("Extras", true));
 
     private double prevGamma = 1.0;
+    private final NightVision nightVision = new NightVision();
 
     public XRayModule() {
         super("XRay", "See ores through rock", Category.RENDER);
@@ -69,13 +71,20 @@ public final class XRayModule extends Module {
     protected void onEnable() {
         prevGamma = mc.options.gamma().get();
         mc.options.gamma().set(10.0);
+        nightVision.enable();
         reloadChunks();
     }
 
     @Override
     protected void onDisable() {
         mc.options.gamma().set(prevGamma);
+        nightVision.disable();
         reloadChunks();
+    }
+
+    @Override
+    protected void onTick() {
+        nightVision.tick();
     }
 
     public static boolean active() {
