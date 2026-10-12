@@ -60,6 +60,10 @@ public class PerplexityClient implements ClientModInitializer {
         ModuleManager.get().register(tabs);
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+        ClientTickEvents.START_CLIENT_TICK.register(minecraft -> {
+            AutoClickerModule.preTick();
+            TriggerbotModule.preTick();
+        });
         // CHANGE_LOOK rotations have to be applied to the camera every frame, after the tick
         // rotation has been committed, with the frame's partial tick.
         WorldRenderEvents.START_MAIN.register(context -> RotationManager.applyChangeLookRotation(
