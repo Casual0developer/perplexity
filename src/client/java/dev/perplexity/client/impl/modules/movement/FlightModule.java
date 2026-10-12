@@ -7,34 +7,37 @@ import dev.perplexity.client.module.setting.DropdownSetting;
 import dev.perplexity.client.module.setting.NumberSetting;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Flight with three drive modes.
+ * Flight with three drives:
  *
  * <ul>
- *   <li>Vanilla: full motion control, velocity is hard-set from input every tick.</li>
+ *   <li>Normal: full motion control, velocity hard-set from input every tick. For vanilla
+ *   servers and no-anticheat play; any motion check will see superhuman velocity.</li>
  *   <li>Creative: spoofs the flying ability and lets vanilla's own creative flight move the
  *   player. Untouched when genuinely in creative, so nothing fights the real ability.</li>
- *   <li>Velocity: momentum-preserving. Input steers, otherwise the current velocity decays
- *   instead of snapping to zero.</li>
- *   <li>Packet: vanilla-style motion client-side, plus a spoofed move packet every tick that
- *   reports the post-motion position as on ground, so the server never sees air time.</li>
+ *   <li>Karhu: Karhu's Fly (A) handler is empty and its Fly (F) check only polices downward
+ *   gravity, so this ascends (never evaluated), holds an exact-zero hover (reads as
+ *   stationary) and hands vertical control back to gravity on sneak (a natural fall matches
+ *   prediction exactly). Horizontal drift stays under every speed gate and nothing extra
+ *   is sent. Constant descents and hover dips flag within ticks, so there are none.</li>
  * </ul>
  */
 public final class FlightModule extends Module {
     private static final Minecraft mc = Minecraft.getInstance();
 
     private static final double DIAGONAL = 0.7071;
-    /** Fraction of velocity kept per tick with no input in Velocity mode. */
-    private static final double MOMENTUM = 0.94;
+    /** Horizontal drift cap in Karhu mode: under every speed gate. */
+    private static final double MAX_DRIFT = 0.08;
 
-    private final DropdownSetting mode = add(new DropdownSetting("Mode", "Vanilla",
-            "Vanilla", "Creative", "Velocity", "Packet"));
+    private final DropdownSetting mode = add(new DropdownSetting("Mode", "Karhu",
+            "Normal", "Creative", "Karhu"));
     private final NumberSetting speed = add(new NumberSetting("Speed",
             0.8, 0.1, 3.0, 0.1));
+    private final NumberSetting climb = add(new NumberSetting("Climb",
+            0.35, 0.1, 1.0, 0.05));
     private final BooleanSetting noGravity = add(new BooleanSetting("No Gravity",
             true));
     private final BooleanSetting antiKick = add(new BooleanSetting("Anti Kick",
@@ -44,7 +47,7 @@ public final class FlightModule extends Module {
     private boolean spoofedAbilities;
 
     public FlightModule() {
-        super("Flight", "Fly in survival", Category.MOVEMENT);
+        super("Flight", "Fly your way", Category.MOVEMENT);
     }
 
     @Override
@@ -79,21 +82,23 @@ public final class FlightModule extends Module {
             tickCreative();
             return;
         }
-        mc.player.setNoGravity(noGravity.get());
-        if (mode.is("Velocity")) {
-            tickVelocity();
-        } else if (mode.is("Packet")) {
-            tickPacket();
-        } else {
-            tickVanilla();
+        if (mode.is("Karhu")) {
+            tickKarhu();
+            return;
         }
+        tickNormal();
     }
 
-    private void tickVanilla() {
-        double[] input = readInput();
-        double forward = input[0];
-        double strafe = input[1];
-        double vertical = input[2];
+    private void tickNormal() {
+        mc.player.setNoGravity(noGravity.get());
+
+        double forward = inputForward();
+        double strafe = inputStrafe();
+        double vertical = inputVertical();
+        if (forward != 0.0 && strafe != 0.0) {
+            forward *= DIAGONAL;
+            strafe *= DIAGONAL;
+        }
 
         double speedValue = speed.get();
         double yawRad = Math.toRadians(mc.player.getYRot());
@@ -121,77 +126,39 @@ public final class FlightModule extends Module {
         mc.player.fallDistance = 0.0;
     }
 
-    /**
-     * Vanilla-style motion on the client, plus a spoofed move packet every tick reporting the
-     * post-motion position as on ground. Vanilla's own packet goes out during the player tick;
-     * this runs after it (end of tick), so the server's last word on our position is grounded
-     * and it never accumulates the air time its flight checks look for.
-     */
-    private void tickPacket() {
-        double[] input = readInput();
-        double forward = input[0];
-        double strafe = input[1];
-        double vertical = input[2];
+    private void tickKarhu() {
+        double forward = inputForward();
+        double strafe = inputStrafe();
+        double vertical = inputVertical();
 
-        double speedValue = speed.get();
-        double yawRad = Math.toRadians(mc.player.getYRot());
-        double motionX = (forward * -Math.sin(yawRad) + strafe * -Math.cos(yawRad)) * speedValue;
-        double motionZ = (forward * Math.cos(yawRad) + strafe * -Math.sin(yawRad)) * speedValue;
-        double motionY = vertical * speedValue;
-
-        if (antiKick.get() && vertical == 0.0 && ticks % 30 == 0) {
-            motionY = -0.04;
-        }
-
-        mc.player.setDeltaMovement(motionX, motionY, motionZ);
-        mc.player.fallDistance = 0.0;
-
-        if (mc.getConnection() != null) {
-            Vec3 pos = mc.player.position();
-            mc.getConnection().send(new ServerboundMovePlayerPacket.PosRot(
-                    pos.x + motionX, pos.y + motionY, pos.z + motionZ,
-                    mc.player.getYRot(), mc.player.getXRot(), true, false));
-        }
-    }
-
-    private void tickVelocity() {
-        double[] input = readInput();
-        double forward = input[0];
-        double strafe = input[1];
-        double vertical = input[2];
-
-        Vec3 current = mc.player.getDeltaMovement();
-        double motionX;
-        double motionZ;
-        if (forward != 0.0 || strafe != 0.0) {
-            double speedValue = speed.get();
+        double length = Math.hypot(forward, strafe);
+        double motionX = 0.0;
+        double motionZ = 0.0;
+        if (length > 0.0) {
             double yawRad = Math.toRadians(mc.player.getYRot());
-            motionX = (forward * -Math.sin(yawRad) + strafe * -Math.cos(yawRad)) * speedValue;
-            motionZ = (forward * Math.cos(yawRad) + strafe * -Math.sin(yawRad)) * speedValue;
-        } else {
-            motionX = current.x * MOMENTUM;
-            motionZ = current.z * MOMENTUM;
+            motionX = (forward / length * -Math.sin(yawRad)
+                    + strafe / length * -Math.cos(yawRad)) * MAX_DRIFT;
+            motionZ = (forward / length * Math.cos(yawRad)
+                    + strafe / length * -Math.sin(yawRad)) * MAX_DRIFT;
         }
 
-        double motionY;
-        if (vertical != 0.0) {
-            motionY = vertical * speed.get();
+        if (vertical > 0.0) {
+            mc.player.setNoGravity(noGravity.get());
+            mc.player.setDeltaMovement(motionX, vertical * climb.get(), motionZ);
+        } else if (vertical == 0.0) {
+            mc.player.setNoGravity(noGravity.get());
+            mc.player.setDeltaMovement(motionX, 0.0, motionZ);
         } else {
-            motionY = current.y * MOMENTUM;
+            // Sneak hands vertical control back to gravity: a natural fall matches
+            // prediction exactly, while any driven descent flags within ticks.
+            mc.player.setNoGravity(false);
+            Vec3 velocity = mc.player.getDeltaMovement();
+            mc.player.setDeltaMovement(motionX, velocity.y, motionZ);
         }
-        if (antiKick.get() && vertical == 0.0 && ticks % 30 == 0) {
-            motionY = -0.04;
-        }
-
-        mc.player.setDeltaMovement(motionX, motionY, motionZ);
         mc.player.fallDistance = 0.0;
     }
 
-    /**
-     * Movement input as {@code [forward, strafe, vertical]}, each in {@code [-1, 1]}.
-     * Diagonals are normalized so corner movement is not faster than straight movement.
-     */
-    private static double[] readInput() {
+    private static double inputForward() {
         double forward = 0.0;
         if (mc.options.keyUp.isDown()) {
             forward += 1.0;
@@ -199,6 +166,10 @@ public final class FlightModule extends Module {
         if (mc.options.keyDown.isDown()) {
             forward -= 1.0;
         }
+        return forward;
+    }
+
+    private static double inputStrafe() {
         double strafe = 0.0;
         if (mc.options.keyRight.isDown()) {
             strafe += 1.0;
@@ -206,6 +177,10 @@ public final class FlightModule extends Module {
         if (mc.options.keyLeft.isDown()) {
             strafe -= 1.0;
         }
+        return strafe;
+    }
+
+    private static double inputVertical() {
         double vertical = 0.0;
         if (mc.options.keyJump.isDown()) {
             vertical += 1.0;
@@ -213,11 +188,6 @@ public final class FlightModule extends Module {
         if (mc.options.keyShift.isDown()) {
             vertical -= 1.0;
         }
-
-        if (forward != 0.0 && strafe != 0.0) {
-            forward *= DIAGONAL;
-            strafe *= DIAGONAL;
-        }
-        return new double[] { forward, strafe, vertical };
+        return vertical;
     }
 }
