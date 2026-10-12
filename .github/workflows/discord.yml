@@ -53,41 +53,49 @@ jobs:
                   ?.trim() ||
                 "No commit message";
 
-              // Display Name shown in text (e.g. "Epik" or "casual0developer")
-              const displayName =
+              // 1. Exact raw name from the commit (e.g. "casual0developer" or "Epik")
+              const rawAuthorName =
                 commit.author?.name ||
                 commitData.data.commit.author.name ||
                 "Unknown";
 
-              // Exact GitHub handle (e.g. "Epikofficial")
-              const githubUsername =
-                commitData.data.author?.login ||
-                commit.author?.username ||
-                displayName;
-
+              let authorUsername = rawAuthorName;
               let authorAvatar = defaultAvatar;
-              let authorUrl = `https://github.com/${githubUsername}`;
+              let authorUrl = `https://github.com/${rawAuthorName}`;
 
-              // Get PFP & URL using the exact GitHub handle
-              if (githubUsername && githubUsername !== "Unknown") {
-                if (userCache[githubUsername]) {
-                  authorAvatar = userCache[githubUsername].avatar_url;
-                  authorUrl = userCache[githubUsername].html_url;
+              // 2. Try looking up the profile using the exact raw author name
+              if (rawAuthorName !== "Unknown") {
+                if (userCache[rawAuthorName]) {
+                  authorAvatar = userCache[rawAuthorName].avatar;
+                  authorUrl = userCache[rawAuthorName].url;
+                  authorUsername = userCache[rawAuthorName].login;
                 } else {
                   try {
-                    const userResponse = await github.rest.users.getByUsername({
-                      username: githubUsername
+                    // Query GitHub API for the user matching the exact author name string
+                    const userRes = await github.rest.users.getByUsername({
+                      username: rawAuthorName
                     });
-                    if (userResponse.data) {
-                      authorAvatar = userResponse.data.avatar_url;
-                      authorUrl = userResponse.data.html_url;
-                      userCache[githubUsername] = {
-                        avatar_url: authorAvatar,
-                        html_url: authorUrl
+
+                    if (userRes.data) {
+                      authorAvatar = userRes.data.avatar_url;
+                      authorUrl = userRes.data.html_url;
+                      authorUsername = userRes.data.login;
+
+                      userCache[rawAuthorName] = {
+                        avatar: authorAvatar,
+                        url: authorUrl,
+                        login: authorUsername
                       };
                     }
                   } catch (e) {
-                    authorAvatar = commitData.data.author?.avatar_url || sender?.avatar_url || defaultAvatar;
+                    // If no user matches rawAuthorName directly, fallback to commitData.data.author
+                    if (commitData.data.author) {
+                      authorAvatar = commitData.data.author.avatar_url;
+                      authorUrl = commitData.data.author.html_url;
+                      authorUsername = commitData.data.author.login;
+                    } else {
+                      authorAvatar = sender?.avatar_url || defaultAvatar;
+                    }
                   }
                 }
               }
@@ -126,7 +134,7 @@ jobs:
                 embeds: [
                   {
                     author: {
-                      name: `${displayName} pushed to ${repoName}`,
+                      name: `${rawAuthorName} pushed to ${repoName}`,
                       icon_url: authorAvatar,
                       url: authorUrl
                     },
@@ -135,7 +143,7 @@ jobs:
                       `**${pushedText} to [\`${branch}\`](${branchUrl})** · ` +
                       `[View diff](${diffUrl})\n` +
                       `📝 **${message}**\n` +
-                      `\`${shortSha}\` · ${commitDate} · by **${displayName}**`,
+                      `\`${shortSha}\` · ${commitDate} · by **${rawAuthorName}**`,
 
                     color: 0x800080,
 
