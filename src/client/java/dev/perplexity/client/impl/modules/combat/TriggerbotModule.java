@@ -5,6 +5,7 @@ import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
 import dev.perplexity.client.module.setting.ModeSetting;
+import dev.perplexity.client.module.setting.RangeSetting;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.tags.ItemTags;
@@ -27,10 +28,21 @@ public final class TriggerbotModule extends Module {
             true));
     private final BooleanSetting swordOnly = add(new BooleanSetting("Sword Only",
             false));
+    private final BooleanSetting autoCooldown = add(new BooleanSetting("Auto Cooldown",
+            true));
+    private final RangeSetting hitDelay = add(new RangeSetting("Hit Delay",
+            0.5, 2.0, 0.0, 5.0, 0.1));
+
+    private long nextHitAtMs;
 
     public TriggerbotModule() {
         super("Triggerbot", "Attacks your crosshair target", Category.COMBAT);
         instance = this;
+    }
+
+    @Override
+    protected void onDisable() {
+        nextHitAtMs = 0L;
     }
 
     @Override
@@ -62,7 +74,11 @@ public final class TriggerbotModule extends Module {
                 || target == mc.player || !target.isAlive()) {
             return;
         }
-        if (mc.player.getAttackStrengthScale(0.0F) < 0.9F) {
+        if (autoCooldown.get() && mc.player.getAttackStrengthScale(0.0F) < 0.9F) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now < nextHitAtMs) {
             return;
         }
         if (osClicks.get()) {
@@ -71,6 +87,7 @@ public final class TriggerbotModule extends Module {
             mc.gameMode.attack(mc.player, target);
             mc.player.swing(InteractionHand.MAIN_HAND);
         }
+        nextHitAtMs = now + (long) (hitDelay.random() * 1000.0);
     }
 
     private static boolean canRun() {

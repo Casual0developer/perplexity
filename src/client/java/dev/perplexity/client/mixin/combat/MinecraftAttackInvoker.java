@@ -6,10 +6,13 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 /**
- * Exposes the left-click attack path so the triggerbot can swing exactly like a real click.
+ * Exposes the click paths so automation swings exactly like real clicks.
  */
 @Mixin(Minecraft.class)
 public interface MinecraftAttackInvoker {
     @Invoker("startAttack")
     boolean perplexity$invokeStartAttack();
+
+    @Invoker("startUseItem")
+    void perplexity$invokeStartUseItem();
 }

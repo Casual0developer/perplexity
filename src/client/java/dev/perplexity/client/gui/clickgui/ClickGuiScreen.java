@@ -35,6 +35,8 @@ public final class ClickGuiScreen extends Screen {
 
     private final Backdrop backdrop = new Backdrop();
     private final List<Panel> panels = new ArrayList<>();
+    /** Reused scratch list so layout never allocates per frame. */
+    private final List<Panel> visiblePanels = new ArrayList<>();
     private boolean built;
     private float globalScroll;
     private float maxGlobalScroll;
@@ -69,7 +71,8 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        if (ClickGuiModule.blurOn()) {
+        int passes = ClickGuiModule.blurPasses();
+        for (int i = 0; i < passes; i++) {
             renderBlurredBackground(guiGraphics);
         }
     }
@@ -107,15 +110,15 @@ public final class ClickGuiScreen extends Screen {
 
             layoutPanels(uiWidth, uiHeight);
             // Draw back-to-front with the focused panel last, so raising one never reflows the grid.
-            // Hidden tabs are skipped but keep their slots in the list, so focus and drag
-            // indices never shift under the panels that stay.
+            // Off-screen panels are culled outright: same pixels, no tessellation for them.
             for (int i = 0; i < panels.size(); i++) {
-                if (i != focusedPanel && TabsModule.isShown(panels.get(i).getCategory())) {
+                if (i != focusedPanel && onScreen(panels.get(i), uiWidth, uiHeight)) {
                     panels.get(i).render(mouseX, mouseY);
                 }
             }
             if (focusedPanel >= 0 && focusedPanel < panels.size()
-                    && TabsModule.isShown(panels.get(focusedPanel).getCategory())) {
+                    && TabsModule.isShown(panels.get(focusedPanel).getCategory())
+                    && onScreen(panels.get(focusedPanel), uiWidth, uiHeight)) {
                 panels.get(focusedPanel).render(mouseX, mouseY);
             }
 
@@ -133,11 +136,17 @@ public final class ClickGuiScreen extends Screen {
         return (float) (Minecraft.getInstance().getWindow().getGuiScale() / UI_REFERENCE_SCALE);
     }
 
+    /** True when any part of the panel intersects the viewport. */
+    private static boolean onScreen(Panel panel, float uiWidth, float uiHeight) {
+        return panel.getX() + panel.getWidth() > 0.0F && panel.getX() < uiWidth
+                && panel.getY() + panel.getHeight() > 0.0F && panel.getY() < uiHeight;
+    }
+
     private void layoutPanels(float uiWidth, float uiHeight) {
-        List<Panel> visible = new ArrayList<>();
+        visiblePanels.clear();
         for (Panel panel : panels) {
             if (TabsModule.isShown(panel.getCategory())) {
-                visible.add(panel);
+                visiblePanels.add(panel);
             }
         }
         Panel dragging = draggingPanel >= 0 && draggingPanel < panels.size()
@@ -145,13 +154,13 @@ public final class ClickGuiScreen extends Screen {
                 : null;
 
         int columns = Math.max(1, (int) ((uiWidth - GRID_MARGIN) / (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING)));
-        columns = Math.min(columns, Math.max(1, visible.size()));
+        columns = Math.min(columns, Math.max(1, visiblePanels.size()));
 
-        int rows = (visible.size() + columns - 1) / columns;
+        int rows = (visiblePanels.size() + columns - 1) / columns;
         float[] rowHeights = new float[rows];
-        for (int i = 0; i < visible.size(); i++) {
+        for (int i = 0; i < visiblePanels.size(); i++) {
             int row = i / columns;
-            rowHeights[row] = Math.max(rowHeights[row], visible.get(i).getHeight());
+            rowHeights[row] = Math.max(rowHeights[row], visiblePanels.get(i).getHeight());
         }
 
         float totalHeight = 0.0F;
@@ -164,12 +173,12 @@ public final class ClickGuiScreen extends Screen {
         float y = GlassTheme.INITIAL_Y - globalScroll;
         for (int row = 0; row < rows; row++) {
             int first = row * columns;
-            int count = Math.min(columns, visible.size() - first);
+            int count = Math.min(columns, visiblePanels.size() - first);
             float rowWidth = count * GlassTheme.PANEL_WIDTH + (count - 1) * GlassTheme.PANEL_SPACING;
             float startX = (uiWidth - rowWidth) / 2.0F;
 
             for (int column = 0; column < count; column++) {
-                Panel panel = visible.get(first + column);
+                Panel panel = visiblePanels.get(first + column);
                 float slotX = startX + column * (GlassTheme.PANEL_WIDTH + GlassTheme.PANEL_SPACING);
                 // Slots are still computed for every panel, so the grid stays put as panels are
                 // dragged out of it — but a panel the user has placed is left where they dropped it.
