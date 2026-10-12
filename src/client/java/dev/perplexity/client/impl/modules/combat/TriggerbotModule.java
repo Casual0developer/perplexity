@@ -4,7 +4,7 @@ import dev.perplexity.client.mixin.combat.MinecraftAttackInvoker;
 import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
-import dev.perplexity.client.module.setting.DropdownSetting;
+import dev.perplexity.client.module.setting.ModeSetting;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.tags.ItemTags;
@@ -21,7 +21,7 @@ public final class TriggerbotModule extends Module {
     private static final Minecraft mc = Minecraft.getInstance();
     private static TriggerbotModule instance;
 
-    private final DropdownSetting detection = add(new DropdownSetting("Detection", "Ticks",
+    private final ModeSetting detection = add(new ModeSetting("Detection", "Ticks",
             "Ticks", "Frames"));
     private final BooleanSetting osClicks = add(new BooleanSetting("OS Clicks",
             true));

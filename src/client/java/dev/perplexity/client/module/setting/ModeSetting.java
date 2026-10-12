@@ -23,6 +23,16 @@ public final class ModeSetting extends Setting {
         return index;
     }
 
+    public boolean is(String value) {
+        return value != null && get().equalsIgnoreCase(value);
+    }
+
+    public void select(int index) {
+        if (index >= 0 && index < modes.length) {
+            this.index = index;
+        }
+    }
+
     public String[] getModes() {
         return modes;
     }
