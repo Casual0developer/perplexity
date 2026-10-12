@@ -47,9 +47,6 @@ public final class Panel {
     /** Extra delay before each successive settings row starts its slide, as a fraction of expand. */
     private static final float STAGGER = 0.12F;
 
-    /** Alpha of the accent wash painted behind an enabled module row. */
-    private static final float ENABLED_ROW_ALPHA = 0.20F;
-
     // Toggle ripple: an accent bloom that spreads out from the click point when a module is switched
     // on (and drains back into it when switched off), then settles into the steady enabled wash.
     private static final float RIPPLE_DURATION = 0.50F;
@@ -387,11 +384,18 @@ public final class Panel {
                 GlassTheme.RADIUS_LG - border,
                 GlassTheme.surfacePanel(), GlassTheme.surfacePanelBottom());
 
-        // Header: semibold and tracked so it still reads as a header now that the separator is gone.
+        // Header: plain near-white with a collapse glyph pinned right, like the reference.
         float headerSize = GlassTheme.FONT_HEADER;
         VGRenderer.textLeft(category.getDisplayName(), x + GlassTheme.PADDING,
                 y + GlassTheme.PANEL_HEADER_HEIGHT / 2.0F,
                 headerSize, VGFont.semiboldFace(), HEADER_TRACKING, GlassTheme.headerText());
+        String collapseGlyph = "+";
+        float glyphWidth = VGRenderer.textWidth(collapseGlyph, headerSize,
+                VGFont.semiboldFace(), HEADER_TRACKING);
+        VGRenderer.textLeft(collapseGlyph,
+                x + width - GlassTheme.PADDING - 2.0F - glyphWidth,
+                y + GlassTheme.PANEL_HEADER_HEIGHT / 2.0F,
+                headerSize, VGFont.semiboldFace(), HEADER_TRACKING, GlassTheme.textMuted());
 
         rows.clear();
         float contentAlpha = 1.0F - collapse;
@@ -420,13 +424,13 @@ public final class Panel {
             float hover = animate(hoverAnimations, module, hovered ? 1.0F : 0.0F, HOVER_SPEED);
             float enabled = animate(enabledAnimations, module, module.isEnabled() ? 1.0F : 0.0F, ENABLE_SPEED);
 
-            // Enabled state is carried by the row itself: an accent wash behind it, fading in with the
-            // label colour. Gives the whole row a lit look instead of a marker pinned to one edge.
+            // Enabled state is a solid gradient bar behind the row, white label above it.
             if (enabled > 0.01F) {
-                VGRenderer.roundedRect(x + GlassTheme.PADDING * 0.5F, cursor,
+                VGRenderer.verticalGradient(x + GlassTheme.PADDING * 0.5F, cursor,
                         width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT,
                         GlassTheme.RADIUS_SM,
-                        GlassTheme.accent(ENABLED_ROW_ALPHA * enabled * contentAlpha));
+                        GlassTheme.scaleAlpha(GlassTheme.accentBright(), enabled * contentAlpha),
+                        GlassTheme.scaleAlpha(GlassTheme.accentDeep(), enabled * contentAlpha));
             }
 
             if (hover > 0.01F) {
@@ -699,25 +703,56 @@ public final class Panel {
         }
 
         if (setting instanceof ModeSetting mode) {
-            if (hovered) {
-                VGRenderer.roundedRect(sx, sy, sw, sh, GlassTheme.RADIUS_SM,
-                        GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
-            }
+            // Segmented control: every option visible as its own pill, selected in accent.
+            String[] modes = mode.getModes();
+            float[] geometry = modePillGeometry(setting, modes, sx, sw);
+            float pillX0 = geometry[0];
+            float pillW = geometry[1];
+            float pillGap = geometry[2];
+            float pillH = 13.0F;
+            float pillY = labelCenterY - pillH / 2.0F;
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
                     GlassTheme.FONT_SETTING, VGFont.FACE,
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
-
-            String label = mode.get();
-            float pillPad = 6.0F;
-            float pillWidth = VGRenderer.textWidth(label, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F) + pillPad * 2.0F;
-            float pillHeight = 13.0F;
-            float pillX = (sx + sw - GlassTheme.SETTING_PADDING) - pillWidth;
-            float pillY = sy + (GlassTheme.SETTING_HEIGHT - pillHeight) / 2.0F;
-            VGRenderer.roundedRect(pillX, pillY, pillWidth, pillHeight, GlassTheme.RADIUS_SM,
-                    GlassTheme.scaleAlpha(GlassTheme.accent(), 0.9F * alpha));
-            VGRenderer.textCentered(label, pillX + pillWidth / 2.0F, pillY + pillHeight / 2.0F,
-                    GlassTheme.FONT_HINT, VGFont.FACE, GlassTheme.scaleAlpha(GlassTheme.textOnAccent(), alpha));
+            for (int i = 0; i < modes.length; i++) {
+                float pillX = pillX0 + i * (pillW + pillGap);
+                boolean selected = i == mode.getIndex();
+                boolean pillHovered = hovered && mouseX >= pillX && mouseX <= pillX + pillW;
+                if (selected) {
+                    VGRenderer.roundedRect(pillX, pillY, pillW, pillH, GlassTheme.RADIUS_SM,
+                            GlassTheme.scaleAlpha(GlassTheme.accent(), 0.95F * alpha));
+                } else {
+                    VGRenderer.roundedRect(pillX, pillY, pillW, pillH, GlassTheme.RADIUS_SM,
+                            GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(),
+                                    (pillHovered ? 0.85F : 0.55F) * alpha));
+                }
+                float optionWidth = VGRenderer.textWidth(modes[i],
+                        GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
+                VGRenderer.textLeft(modes[i], pillX + (pillW - optionWidth) / 2.0F,
+                        pillY + pillH / 2.0F,
+                        GlassTheme.FONT_HINT, VGFont.FACE,
+                        GlassTheme.scaleAlpha(selected ? GlassTheme.textOnAccent()
+                                : (pillHovered ? GlassTheme.textPrimary() : GlassTheme.textMuted()),
+                                alpha));
+            }
+            return;
         }
+    }
+
+    /**
+     * Geometry of a segmented mode row as {@code [pillStartX, pillWidth, pillGap]}. Click
+     * handling reuses the same math so taps land on the pill they highlight.
+     */
+    private static float[] modePillGeometry(Setting setting, String[] modes, float sx, float sw) {
+        float nameWidth = VGRenderer.textWidth(setting.getName(),
+                GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
+        float pillGap = 3.0F;
+        float available = sw - nameWidth - GlassTheme.SETTING_PADDING * 2.0F - 10.0F
+                - pillGap * (modes.length - 1);
+        float pillW = Math.max(24.0F, available / modes.length);
+        float startX = sx + sw - GlassTheme.SETTING_PADDING
+                - (pillW * modes.length + pillGap * (modes.length - 1));
+        return new float[] { startX, pillW, pillGap };
     }
 
     private static float rowHeight(Setting setting) {
@@ -838,8 +873,13 @@ public final class Panel {
                     }
                 }
                 case TYPE_MODE -> {
-                    if (row.setting instanceof ModeSetting mode && (button == 0 || button == 1)) {
-                        mode.cycle();
+                    if (row.setting instanceof ModeSetting mode && button == 0) {
+                        String[] modes = mode.getModes();
+                        float[] geometry = modePillGeometry(row.setting, modes, row.x, row.w);
+                        int index = (int) ((mouseX - geometry[0]) / (geometry[1] + geometry[2]));
+                        if (index >= 0 && index < modes.length) {
+                            mode.select(index);
+                        }
                     }
                 }
                 case TYPE_DROPDOWN -> {

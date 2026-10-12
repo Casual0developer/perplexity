@@ -80,7 +80,7 @@ public final class GlassTheme {
     public static final float FONT_SETTING = 7.5F;
     public static final float FONT_HINT = 7.0F;
 
-    public static final Color ACCENT = new Color(124, 92, 255);
+    public static final Color ACCENT = new Color(250, 72, 140);
 
     private static boolean dark = true;
 
@@ -102,12 +102,12 @@ public final class GlassTheme {
      * the backdrop glows and flakes read faintly through the panels instead of being hidden by them.
      */
     public static Color surfacePanel() {
-        return dark ? new Color(26, 18, 42, 226) : new Color(250, 248, 255, 216);
+        return dark ? new Color(26, 18, 42, 208) : new Color(250, 248, 255, 200);
     }
 
     /** Bottom of the panel surface gradient, a shade deeper so panels gain a little depth. */
     public static Color surfacePanelBottom() {
-        return dark ? new Color(12, 8, 24, 238) : new Color(236, 232, 250, 232);
+        return dark ? new Color(12, 8, 24, 222) : new Color(236, 232, 250, 216);
     }
 
     /**
@@ -126,7 +126,7 @@ public final class GlassTheme {
 
     /** Unfilled part of a slider track. Dimmer than {@link #interactiveMuted()} so tracks recede. */
     public static Color sliderTrack() {
-        return dark ? new Color(70, 62, 102, 150) : new Color(206, 200, 228, 175);
+        return dark ? new Color(88, 72, 104, 150) : new Color(212, 200, 230, 175);
     }
 
     public static Color textPrimary() {
@@ -141,17 +141,17 @@ public final class GlassTheme {
         return dark ? new Color(176, 168, 208, 205) : new Color(100, 90, 128, 210);
     }
 
-    /** Category header text. One colour for every category, softened lavender. */
+    /** Category header text. Plain near-white, like the reference. */
     public static Color headerText() {
-        return dark ? new Color(214, 205, 255) : new Color(88, 66, 186);
+        return dark ? new Color(240, 238, 250) : new Color(88, 66, 186);
     }
 
     public static Color moduleHover() {
-        return dark ? new Color(150, 118, 255, 30) : new Color(124, 92, 255, 26);
+        return dark ? new Color(255, 110, 170, 30) : new Color(250, 72, 140, 26);
     }
 
     public static Color interactiveMuted() {
-        return dark ? new Color(84, 74, 124, 190) : new Color(198, 190, 226, 165);
+        return dark ? new Color(96, 80, 106, 190) : new Color(210, 198, 228, 165);
     }
 
     public static Color knob() {
@@ -162,9 +162,9 @@ public final class GlassTheme {
         return new Color(255, 255, 255, 240);
     }
 
-    /** Blur tint drawn over the background: a deep violet-black rather than flat grey. */
+    /** Blur tint drawn over the background: kept faint so the game reads through the menu. */
     public static Color scrim() {
-        return dark ? new Color(9, 5, 18, 130) : new Color(28, 16, 52, 60);
+        return dark ? new Color(9, 5, 18, 38) : new Color(28, 16, 52, 18);
     }
 
     // --- Backdrop ------------------------------------------------------------------------------
@@ -208,6 +208,16 @@ public final class GlassTheme {
 
     public static Color accent() {
         return ACCENT;
+    }
+
+    /** Bright end of the enabled-row gradient. */
+    public static Color accentBright() {
+        return new Color(255, 105, 168);
+    }
+
+    /** Deep end of the enabled-row gradient. */
+    public static Color accentDeep() {
+        return new Color(238, 52, 118);
     }
 
     public static Color accent(float alpha) {
