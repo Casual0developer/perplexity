@@ -3,7 +3,6 @@ package dev.perplexity.client.impl.modules.movement;
 import dev.perplexity.client.module.Category;
 import dev.perplexity.client.module.Module;
 import dev.perplexity.client.module.setting.BooleanSetting;
-import dev.perplexity.client.module.setting.DropdownSetting;
 import dev.perplexity.client.module.setting.NumberSetting;
 
 import net.minecraft.client.Minecraft;
@@ -12,25 +11,16 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Strafe speed. Drives horizontal velocity from input every tick while leaving vertical
  * motion (jumping, gravity) to vanilla.
- *
- * <p>Karhu mode is legit-only: Karhu's Speed (A/B/C) checks replay vanilla physics from
- * your inputs, so forced superhuman velocity flags within ticks no matter the shaping.
- * Instead this mode perfects vanilla movement itself — sprint held and a jump exactly on
- * every landing — which is the fastest legal motion and matches prediction exactly.</p>
  */
 public final class SpeedModule extends Module {
     private static final Minecraft mc = Minecraft.getInstance();
 
     private static final double DIAGONAL = 0.7071;
 
-    private final DropdownSetting mode = add(new DropdownSetting("Mode", "Normal",
-            "Normal", "Karhu"));
     private final NumberSetting speed = add(new NumberSetting("Speed",
             1.0, 0.1, 5.0, 0.1));
     private final BooleanSetting onlyGround = add(new BooleanSetting("Only Ground",
             false));
-    private final BooleanSetting jump = add(new BooleanSetting("Jump",
-            true));
 
     public SpeedModule() {
         super("Speed", "Run faster", Category.MOVEMENT);
@@ -39,10 +29,6 @@ public final class SpeedModule extends Module {
     @Override
     protected void onTick() {
         if (mc.player == null || mc.level == null) {
-            return;
-        }
-        if (mode.is("Karhu")) {
-            tickKarhu();
             return;
         }
 
@@ -79,21 +65,5 @@ public final class SpeedModule extends Module {
 
         Vec3 velocity = mc.player.getDeltaMovement();
         mc.player.setDeltaMovement(motionX, velocity.y, motionZ);
-    }
-
-    /** Perfect bunnyhop: sprint held, jump exactly on landing, physics otherwise vanilla. */
-    private void tickKarhu() {
-        boolean moving = mc.options.keyUp.isDown() || mc.options.keyDown.isDown()
-                || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown();
-        if (!moving || mc.options.keyShift.isDown()) {
-            return;
-        }
-        if (mc.player.getFoodData().getFoodLevel() <= 6) {
-            return;
-        }
-        mc.player.setSprinting(true);
-        if (jump.get() && mc.player.onGround()) {
-            mc.player.jumpFromGround();
-        }
     }
 }

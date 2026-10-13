@@ -14,13 +14,12 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 
 /**
- * Attacks whatever the crosshair rests on. Detection runs either once per client tick or once
- * per render frame, chosen by the dropdown. OS Clicks goes through the same path as a real
- * left click (cooldown, swing, miss handling); with it off the hit is sent directly.
- *
- * <p>Grim mode checks once per tick at tick start instead: Grim's Post check flags action
- * packets that arrive after the tick's movement packet, which covers both end-of-tick and
- * frame-time attacks, so Detection is bypassed while Grim is on.</p>
+ * Attacks whatever the crosshair rests on. Ticks detection runs once per tick at tick start
+ * so hits land before the tick's movement packets, the way vanilla clicks do; Frames
+ * detection spots the target every render frame but holds the swing for the next pre-tick,
+ * since a frame-time hit can never precede movement and Grim's Post check flags exactly
+ * that. OS Clicks goes through the same path as a real left click (cooldown, swing, miss
+ * handling); with it off the hit is sent directly.
  */
 public final class TriggerbotModule extends Module {
     private static final Minecraft mc = Minecraft.getInstance();
@@ -28,8 +27,6 @@ public final class TriggerbotModule extends Module {
 
     private final ModeSetting detection = add(new ModeSetting("Detection", "Ticks",
             "Ticks", "Frames"));
-    private final ModeSetting mode = add(new ModeSetting("Mode", "Normal",
-            "Normal", "Grim"));
     private final BooleanSetting osClicks = add(new BooleanSetting("OS Clicks",
             true));
     private final BooleanSetting swordOnly = add(new BooleanSetting("Sword Only",
@@ -40,6 +37,7 @@ public final class TriggerbotModule extends Module {
             0.5, 2.0, 0.0, 5.0, 0.1));
 
     private long nextHitAtMs;
+    private boolean pendingFrameAttack;
 
     public TriggerbotModule() {
         super("Triggerbot", "Attacks your crosshair target", Category.COMBAT);
@@ -51,25 +49,20 @@ public final class TriggerbotModule extends Module {
         nextHitAtMs = 0L;
     }
 
-    @Override
-    protected void onTick() {
-        if (instance == null || !isEnabled() || mode.is("Grim") || !detection.is("Ticks")) {
+    /** Per-frame entry point: only arms a swing, the next pre-tick fires it. */
+    public static void onFrame() {
+        if (instance != null && instance.isEnabled() && instance.detection.is("Frames")) {
+            instance.pendingFrameAttack = true;
+        }
+    }
+
+    /** Pre-tick entry point, driving Ticks detection before the tick's movement packets. */
+    public static void preTick() {
+        if (instance == null || !instance.isEnabled()) {
             return;
         }
-        tryAttack();
-    }
-
-    /** Per-frame entry point, called from the render event when Detection is Frames. */
-    public static void onFrame() {
-        if (instance != null && instance.isEnabled() && instance.detection.is("Frames")
-                && !instance.mode.is("Grim")) {
-            instance.tryAttack();
-        }
-    }
-
-    /** Pre-tick entry point, driving every attack while Grim mode is on. */
-    public static void preTick() {
-        if (instance != null && instance.isEnabled() && instance.mode.is("Grim")) {
+        if (instance.detection.is("Ticks") || instance.pendingFrameAttack) {
+            instance.pendingFrameAttack = false;
             instance.tryAttack();
         }
     }
