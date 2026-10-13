@@ -11,33 +11,24 @@ import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Flight with three drives:
+ * Flight with two drives:
  *
  * <ul>
  *   <li>Normal: full motion control, velocity hard-set from input every tick. For vanilla
  *   servers and no-anticheat play; any motion check will see superhuman velocity.</li>
  *   <li>Creative: spoofs the flying ability and lets vanilla's own creative flight move the
  *   player. Untouched when genuinely in creative, so nothing fights the real ability.</li>
- *   <li>Karhu: Karhu's Fly (A) handler is empty and its Fly (F) check only polices downward
- *   gravity, so this ascends (never evaluated), holds an exact-zero hover (reads as
- *   stationary) and hands vertical control back to gravity on sneak (a natural fall matches
- *   prediction exactly). Horizontal drift stays under every speed gate and nothing extra
- *   is sent. Constant descents and hover dips flag within ticks, so there are none.</li>
  * </ul>
  */
 public final class FlightModule extends Module {
     private static final Minecraft mc = Minecraft.getInstance();
 
     private static final double DIAGONAL = 0.7071;
-    /** Horizontal drift cap in Karhu mode: under every speed gate. */
-    private static final double MAX_DRIFT = 0.08;
 
-    private final DropdownSetting mode = add(new DropdownSetting("Mode", "Karhu",
-            "Normal", "Creative", "Karhu"));
+    private final DropdownSetting mode = add(new DropdownSetting("Mode", "Normal",
+            "Normal", "Creative"));
     private final NumberSetting speed = add(new NumberSetting("Speed",
             0.8, 0.1, 3.0, 0.1));
-    private final NumberSetting climb = add(new NumberSetting("Climb",
-            0.35, 0.1, 1.0, 0.05));
     private final BooleanSetting noGravity = add(new BooleanSetting("No Gravity",
             true));
     private final BooleanSetting antiKick = add(new BooleanSetting("Anti Kick",
@@ -82,10 +73,6 @@ public final class FlightModule extends Module {
             tickCreative();
             return;
         }
-        if (mode.is("Karhu")) {
-            tickKarhu();
-            return;
-        }
         tickNormal();
     }
 
@@ -123,38 +110,6 @@ public final class FlightModule extends Module {
         abilities.flying = true;
         abilities.setFlyingSpeed((float) (speed.get() * 0.05));
         spoofedAbilities = true;
-        mc.player.fallDistance = 0.0;
-    }
-
-    private void tickKarhu() {
-        double forward = inputForward();
-        double strafe = inputStrafe();
-        double vertical = inputVertical();
-
-        double length = Math.hypot(forward, strafe);
-        double motionX = 0.0;
-        double motionZ = 0.0;
-        if (length > 0.0) {
-            double yawRad = Math.toRadians(mc.player.getYRot());
-            motionX = (forward / length * -Math.sin(yawRad)
-                    + strafe / length * -Math.cos(yawRad)) * MAX_DRIFT;
-            motionZ = (forward / length * Math.cos(yawRad)
-                    + strafe / length * -Math.sin(yawRad)) * MAX_DRIFT;
-        }
-
-        if (vertical > 0.0) {
-            mc.player.setNoGravity(noGravity.get());
-            mc.player.setDeltaMovement(motionX, vertical * climb.get(), motionZ);
-        } else if (vertical == 0.0) {
-            mc.player.setNoGravity(noGravity.get());
-            mc.player.setDeltaMovement(motionX, 0.0, motionZ);
-        } else {
-            // Sneak hands vertical control back to gravity: a natural fall matches
-            // prediction exactly, while any driven descent flags within ticks.
-            mc.player.setNoGravity(false);
-            Vec3 velocity = mc.player.getDeltaMovement();
-            mc.player.setDeltaMovement(motionX, velocity.y, motionZ);
-        }
         mc.player.fallDistance = 0.0;
     }
 
