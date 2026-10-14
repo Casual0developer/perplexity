@@ -72,6 +72,7 @@ public class PerplexityClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigManager.flush());
         ClientTickEvents.START_CLIENT_TICK.register(minecraft -> {
+            AirJumpModule.preTick();
             ClickHelperModule.preTick();
             AttackHelperModule.preTick();
         });
