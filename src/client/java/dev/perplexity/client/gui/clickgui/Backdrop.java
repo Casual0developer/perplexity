@@ -16,7 +16,7 @@ import java.util.Random;
  * change with framerate, and the delta is clamped so a stalled or paused frame cannot teleport the
  * field.</p>
  */
-final class Backdrop {
+public final class Backdrop {
     private static final int MIN_FLAKES = 40;
     private static final int MAX_FLAKES = 80;
     /** Roughly one flake per this many square GUI units, clamped to the range above. */
@@ -31,7 +31,7 @@ final class Backdrop {
     private float height = -1.0F;
     private long lastFrameNanos;
 
-    void render(float width, float height) {
+    public void render(float width, float height) {
         if (width != this.width || height != this.height) {
             this.width = width;
             this.height = height;
