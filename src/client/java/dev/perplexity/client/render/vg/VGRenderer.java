@@ -433,7 +433,7 @@ public final class VGRenderer {
     }
 
     public static void text(String text, float x, float y, float size, Color color) {
-        text(text, x, y, size, VGFont.FACE, 0.0F, 0.0F, color);
+        text(text, x, y, size, VGFont.face(), 0.0F, 0.0F, color);
     }
 
     public static void text(String text, float x, float y, float size, String face, float embolden, float spacing, Color color) {
@@ -444,7 +444,7 @@ public final class VGRenderer {
         long vg = VGContext.handle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            vgFontFace(vg, face == null ? VGFont.FACE : face);
+            vgFontFace(vg, face == null ? VGFont.face() : face);
             vgFontSize(vg, size);
             vgFontBlur(vg, 0.0F);
             vgTextLetterSpacing(vg, spacing);
@@ -476,7 +476,7 @@ public final class VGRenderer {
         }
         long vg = VGContext.handle();
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            vgFontFace(vg, face == null ? VGFont.FACE : face);
+            vgFontFace(vg, face == null ? VGFont.face() : face);
             vgFontSize(vg, size);
             vgFontBlur(vg, 0.0F);
             vgTextLetterSpacing(vg, spacing);
@@ -493,7 +493,7 @@ public final class VGRenderer {
         }
         long vg = VGContext.handle();
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            vgFontFace(vg, face == null ? VGFont.FACE : face);
+            vgFontFace(vg, face == null ? VGFont.face() : face);
             vgFontSize(vg, size);
             vgFontBlur(vg, 0.0F);
             vgTextLetterSpacing(vg, 0.0F);
@@ -505,7 +505,7 @@ public final class VGRenderer {
     }
 
     public static float textWidth(String text, float size) {
-        return textWidth(text, size, VGFont.FACE, 0.0F);
+        return textWidth(text, size, VGFont.face(), 0.0F);
     }
 
     public static float textWidth(String text, float size, String face, float spacing) {
@@ -525,7 +525,7 @@ public final class VGRenderer {
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 float[] bounds = new float[4];
 
-                vgFontFace(vg, face == null ? VGFont.FACE : face);
+                vgFontFace(vg, face == null ? VGFont.face() : face);
                 vgFontSize(vg, size);
                 vgTextLetterSpacing(vg, spacing);
                 vgTextBounds(vg, 0.0F, 0.0F, text, bounds);

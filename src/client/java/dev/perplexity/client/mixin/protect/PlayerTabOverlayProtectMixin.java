@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.protect;
 
-import dev.perplexity.client.impl.modules.misc.ProtectModule;
+import dev.perplexity.client.impl.modules.misc.ProtectionModule;
 
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -19,9 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class PlayerTabOverlayProtectMixin {
     @Inject(method = "getNameForDisplay", at = @At("HEAD"), cancellable = true)
     private void perplexity$anonymizeTabName(PlayerInfo entry, CallbackInfoReturnable<Component> cir) {
-        Component spoofed = ProtectModule.tabNameFor(entry);
-        if (spoofed != null) {
-            cir.setReturnValue(spoofed);
+        Component alias = ProtectionModule.tabNameFor(entry);
+        if (alias != null) {
+            cir.setReturnValue(alias);
         }
     }
 }

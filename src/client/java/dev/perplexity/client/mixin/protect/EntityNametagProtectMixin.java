@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.protect;
 
-import dev.perplexity.client.impl.modules.misc.ProtectModule;
+import dev.perplexity.client.impl.modules.misc.ProtectionModule;
 
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.network.chat.Component;
@@ -19,9 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class EntityNametagProtectMixin {
     @Inject(method = "getNameTag", at = @At("HEAD"), cancellable = true)
     private void perplexity$anonymizeNametag(Entity entity, CallbackInfoReturnable<Component> cir) {
-        Component spoofed = ProtectModule.nametagFor(entity);
-        if (spoofed != null) {
-            cir.setReturnValue(spoofed);
+        Component alias = ProtectionModule.nametagFor(entity);
+        if (alias != null) {
+            cir.setReturnValue(alias);
         }
     }
 }

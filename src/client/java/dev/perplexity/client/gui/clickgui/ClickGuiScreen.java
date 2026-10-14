@@ -1,8 +1,9 @@
 package dev.perplexity.client.gui.clickgui;
 
 import dev.perplexity.client.module.Category;
-import dev.perplexity.client.impl.modules.ui.TabsModule;
-import dev.perplexity.client.impl.modules.ui.ClickGuiModule;
+import dev.perplexity.client.auth.CurrentAccount;
+import dev.perplexity.client.impl.modules.ui.MenuKeyModule;
+import dev.perplexity.client.impl.modules.ui.TabControlModule;
 import dev.perplexity.client.module.ModuleManager;
 import dev.perplexity.client.module.setting.KeybindSetting;
 import dev.perplexity.client.render.vg.VGFont;
@@ -71,7 +72,7 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        int passes = ClickGuiModule.blurPasses();
+        int passes = MenuKeyModule.blurPasses();
         for (int i = 0; i < passes; i++) {
             renderBlurredBackground(guiGraphics);
         }
@@ -100,6 +101,7 @@ public final class ClickGuiScreen extends Screen {
         if (!VGRenderer.beginFrame()) {
             return;
         }
+        VGFont.setFamily(MenuKeyModule.fontId());
         try {
             VGRenderer.save();
             VGRenderer.scale(UI_REFERENCE_SCALE, UI_REFERENCE_SCALE);
@@ -117,7 +119,7 @@ public final class ClickGuiScreen extends Screen {
                 }
             }
             if (focusedPanel >= 0 && focusedPanel < panels.size()
-                    && TabsModule.isShown(panels.get(focusedPanel).getCategory())
+                    && TabControlModule.isShown(panels.get(focusedPanel).getCategory())
                     && onScreen(panels.get(focusedPanel), uiWidth, uiHeight)) {
                 panels.get(focusedPanel).render(mouseX, mouseY);
             }
@@ -145,7 +147,7 @@ public final class ClickGuiScreen extends Screen {
     private void layoutPanels(float uiWidth, float uiHeight) {
         visiblePanels.clear();
         for (Panel panel : panels) {
-            if (TabsModule.isShown(panel.getCategory())) {
+            if (TabControlModule.isShown(panel.getCategory())) {
                 visiblePanels.add(panel);
             }
         }
@@ -191,7 +193,13 @@ public final class ClickGuiScreen extends Screen {
     }
 
     private void drawWatermark() {
-        VGRenderer.textLeft("perplexity", 12.0F, 16.0F, 10.0F, VGFont.semiboldFace(), 0.6F,
+        String user = CurrentAccount.email();
+        String label = "perplexity";
+        if (user != null && !user.isEmpty()) {
+            String shown = user.length() > 24 ? user.substring(0, 21) + "..." : user;
+            label = "perplexity - " + shown;
+        }
+        VGRenderer.textLeft(label, 12.0F, 16.0F, 10.0F, VGFont.semiboldFace(), 0.6F,
                 GlassTheme.headerText());
     }
 
@@ -214,7 +222,7 @@ public final class ClickGuiScreen extends Screen {
 
         // Front-to-back hit test: the focused panel gets first refusal, then the rest top-down.
         if (focusedPanel >= 0 && focusedPanel < panels.size()
-                && TabsModule.isShown(panels.get(focusedPanel).getCategory())
+                && TabControlModule.isShown(panels.get(focusedPanel).getCategory())
                 && panels.get(focusedPanel).mouseClicked(mouseX, mouseY, button)) {
             focus(focusedPanel, mouseX, mouseY, button);
             return true;
@@ -223,7 +231,7 @@ public final class ClickGuiScreen extends Screen {
             if (i == focusedPanel) {
                 continue;
             }
-            if (!TabsModule.isShown(panels.get(i).getCategory())) {
+            if (!TabControlModule.isShown(panels.get(i).getCategory())) {
                 continue;
             }
             if (panels.get(i).mouseClicked(mouseX, mouseY, button)) {
@@ -267,7 +275,7 @@ public final class ClickGuiScreen extends Screen {
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         float unit = uiUnitScale();
         for (Panel panel : panels) {
-            if (TabsModule.isShown(panel.getCategory())) {
+            if (TabControlModule.isShown(panel.getCategory())) {
                 panel.mouseDragged(event.x() * unit, event.y() * unit, event.button());
             }
         }
@@ -295,7 +303,7 @@ public final class ClickGuiScreen extends Screen {
         double uiMouseX = mouseX * unit;
         double uiMouseY = mouseY * unit;
         if (focusedPanel >= 0 && focusedPanel < panels.size()
-                && TabsModule.isShown(panels.get(focusedPanel).getCategory())
+                && TabControlModule.isShown(panels.get(focusedPanel).getCategory())
                 && panels.get(focusedPanel).mouseScrolled(uiMouseX, uiMouseY, scrollY)) {
             return true;
         }
@@ -303,7 +311,7 @@ public final class ClickGuiScreen extends Screen {
             if (i == focusedPanel) {
                 continue;
             }
-            if (!TabsModule.isShown(panels.get(i).getCategory())) {
+            if (!TabControlModule.isShown(panels.get(i).getCategory())) {
                 continue;
             }
             if (panels.get(i).mouseScrolled(uiMouseX, uiMouseY, scrollY)) {

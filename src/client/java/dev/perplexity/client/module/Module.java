@@ -8,8 +8,6 @@ import java.util.Collections;
 import java.util.List;
 
 public abstract class Module {
-    private final String name;
-    private final String description;
     private final Category category;
     private final List<Setting> settings = new ArrayList<>();
     /** Cached unmodifiable view: settings are all added during construction, so this never goes stale. */
@@ -19,9 +17,7 @@ public abstract class Module {
     private int keybind;
     private boolean expanded;
 
-    protected Module(String name, String description, Category category) {
-        this.name = name;
-        this.description = description;
+    protected Module(Category category) {
         this.category = category;
     }
 
@@ -30,13 +26,11 @@ public abstract class Module {
         return setting;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
+    /**
+     * Original display name, decoded fresh on every call and never stored: the plaintext
+     * exists only transiently while drawn. Implementations return an Obf blob decode.
+     */
+    public abstract String getDisplayName();
 
     public Category getCategory() {
         return category;
@@ -62,7 +56,7 @@ public abstract class Module {
             return;
         }
         this.enabled = value;
-        Toasts.push(name, value);
+        Toasts.push(this, value);
         if (value) {
             onEnable();
         } else {

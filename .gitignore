@@ -44,3 +44,6 @@ replay_*.log
 # skid shit
 SkidFolder/
 .freebuff/
+
+# local secrets (bot tokens etc. must never be committed)
+src/client/resources/discord.properties
