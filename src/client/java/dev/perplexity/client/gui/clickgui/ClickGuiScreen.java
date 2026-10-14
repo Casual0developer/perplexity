@@ -230,9 +230,7 @@ public final class ClickGuiScreen extends Screen {
         VGRenderer.roundedOutline(buttonX, buttonY, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT,
                 GlassTheme.RADIUS_MD, 1.0F,
                 accountOpen ? GlassTheme.accent(0.8F) : GlassTheme.panelBorder());
-        VGRenderer.circle(buttonX + 10.0F, buttonY + ACCOUNT_BUTTON_HEIGHT * 0.5F,
-                3.0F, GlassTheme.accent());
-        VGRenderer.textLeft("Account", buttonX + 18.0F,
+        VGRenderer.textLeft("Account", buttonX + 10.0F,
                 buttonY + ACCOUNT_BUTTON_HEIGHT * 0.5F, 8.0F,
                 VGFont.mediumFace(), GlassTheme.textPrimary());
 
