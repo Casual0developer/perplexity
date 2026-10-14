@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.combat;
 
-import dev.perplexity.client.impl.modules.combat.AntiKnockbackModule;
+import dev.perplexity.client.impl.modules.combat.KnockbackModule;
 
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ClientPacketListenerKnockbackMixin {
     @Inject(method = "handleSetEntityMotion", at = @At("HEAD"), cancellable = true)
     private void perplexity$reduceKnockback(ClientboundSetEntityMotionPacket packet, CallbackInfo ci) {
-        if (AntiKnockbackModule.handle(packet)) {
+        if (KnockbackModule.handle(packet)) {
             ci.cancel();
         }
     }

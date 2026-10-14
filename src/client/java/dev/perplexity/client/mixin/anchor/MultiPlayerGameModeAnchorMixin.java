@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.anchor;
 
-import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
+import dev.perplexity.client.impl.modules.combat.AnchorHelperModule;
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -24,10 +24,10 @@ public abstract class MultiPlayerGameModeAnchorMixin {
     private InteractionResult perplexity$recordManualAnchor(LocalPlayer player, InteractionHand hand,
                                                             BlockHitResult hit,
                                                             Operation<InteractionResult> original) {
-        BlockPos candidate = AnchorMacroModule.placementCandidate(player, hand, hit);
+        BlockPos candidate = AnchorHelperModule.placementCandidate(player, hand, hit);
         InteractionResult result = original.call(player, hand, hit);
         if (candidate != null && result.consumesAction()) {
-            AnchorMacroModule.onAnchorPlaced(player, candidate);
+            AnchorHelperModule.onAnchorPlaced(player, candidate);
         }
         return result;
     }

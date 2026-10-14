@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.anchor;
 
-import dev.perplexity.client.impl.modules.combat.AnchorMacroModule;
+import dev.perplexity.client.impl.modules.combat.AnchorHelperModule;
 
 import net.minecraft.client.Minecraft;
 
@@ -20,25 +20,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class MinecraftAnchorInputMixin {
     @Inject(method = "handleKeybinds", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z", ordinal = 0))
-    private void perplexity$runAnchorMacro(CallbackInfo callbackInfo) {
-        AnchorMacroModule.onHandleInputEarly();
+    private void perplexity$runAnchorHelper(CallbackInfo callbackInfo) {
+        AnchorHelperModule.onHandleInputEarly();
     }
 
     @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
     private void perplexity$blockAnchorAttack(CallbackInfoReturnable<Boolean> callbackInfo) {
-        if (AnchorMacroModule.ownsCombatInput()) {
+        if (AnchorHelperModule.ownsCombatInput()) {
             callbackInfo.setReturnValue(false);
         }
     }
 
     @ModifyVariable(method = "continueAttack", at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private boolean perplexity$blockHeldAttack(boolean held) {
-        return held && !AnchorMacroModule.ownsCombatInput();
+        return held && !AnchorHelperModule.ownsCombatInput();
     }
 
     @Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
     private void perplexity$blockAnchorUse(CallbackInfo callbackInfo) {
-        if (AnchorMacroModule.ownsCombatInput()) {
+        if (AnchorHelperModule.ownsCombatInput()) {
             callbackInfo.cancel();
         }
     }

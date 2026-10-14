@@ -17,8 +17,8 @@ import java.util.Random;
  * field.</p>
  */
 final class Backdrop {
-    private static final int MIN_FLAKES = 50;
-    private static final int MAX_FLAKES = 110;
+    private static final int MIN_FLAKES = 40;
+    private static final int MAX_FLAKES = 80;
     /** Roughly one flake per this many square GUI units, clamped to the range above. */
     private static final float AREA_PER_FLAKE = 9000.0F;
     private static final float MAX_DELTA_SECONDS = 0.05F;

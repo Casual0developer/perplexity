@@ -1,6 +1,6 @@
 package dev.perplexity.client.mixin.protect;
 
-import dev.perplexity.client.impl.modules.misc.ProtectModule;
+import dev.perplexity.client.impl.modules.misc.ProtectionModule;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.entity.player.PlayerSkin;
@@ -18,9 +18,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class LocalPlayerSkinProtectMixin {
     @Inject(method = "getSkin", at = @At("HEAD"), cancellable = true)
     private void perplexity$randomizeSkin(CallbackInfoReturnable<PlayerSkin> cir) {
-        PlayerSkin spoofed = ProtectModule.skinFor((AbstractClientPlayer) (Object) this);
-        if (spoofed != null) {
-            cir.setReturnValue(spoofed);
+        PlayerSkin alias = ProtectionModule.skinFor((AbstractClientPlayer) (Object) this);
+        if (alias != null) {
+            cir.setReturnValue(alias);
         }
     }
 }

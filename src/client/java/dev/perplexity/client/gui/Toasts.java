@@ -1,7 +1,9 @@
 package dev.perplexity.client.gui;
 
 import dev.perplexity.client.gui.clickgui.GlassTheme;
-import dev.perplexity.client.impl.modules.ui.NotificationsModule;
+import dev.perplexity.client.impl.modules.ui.MenuKeyModule;
+import dev.perplexity.client.impl.modules.ui.PopupsModule;
+import dev.perplexity.client.module.Module;
 import dev.perplexity.client.render.vg.VGFont;
 import dev.perplexity.client.render.vg.VGRenderer;
 
@@ -35,7 +37,7 @@ public final class Toasts {
     private static final SoundEvent CLICK =
             SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath("perplexity", "click"));
 
-    private record Toast(String label, boolean on, long born) {
+    private record Toast(Module module, String notice, boolean on, long born) {
     }
 
     private static final List<Toast> queue = new ArrayList<>();
@@ -43,16 +45,27 @@ public final class Toasts {
     private Toasts() {
     }
 
-    public static void push(String label, boolean on) {
-        if (!NotificationsModule.enabled()) {
+    public static void push(Module module, boolean on) {
+        if (module == null || !PopupsModule.enabled()) {
             return;
         }
-        queue.add(new Toast(label, on, System.currentTimeMillis()));
+        queue.add(new Toast(module, null, on, System.currentTimeMillis()));
         while (queue.size() > MAX_VISIBLE) {
             queue.remove(0);
         }
         if (on) {
             playClick();
+        }
+    }
+
+    /** Plain notice text; only ever innocent words, never module names. */
+    public static void pushNotice(String notice) {
+        if (notice == null || !PopupsModule.enabled()) {
+            return;
+        }
+        queue.add(new Toast(null, notice, false, System.currentTimeMillis()));
+        while (queue.size() > MAX_VISIBLE) {
+            queue.remove(0);
         }
     }
 
@@ -84,6 +97,7 @@ public final class Toasts {
         if (!VGRenderer.beginFrame()) {
             return;
         }
+        VGFont.setFamily(MenuKeyModule.fontId());
         try {
             VGRenderer.save();
             VGRenderer.scale(2.0F, 2.0F);
@@ -101,6 +115,9 @@ public final class Toasts {
 
                 float x = uiWidth - MARGIN - TOAST_WIDTH + (1.0F - ease) * TOAST_WIDTH;
                 float y = uiHeight - MARGIN - (count - i) * (TOAST_HEIGHT + STACK_GAP) + STACK_GAP;
+                String label = toast.module() != null
+                        ? toast.module().getDisplayName()
+                        : toast.notice();
 
                 VGRenderer.roundedRect(x, y, TOAST_WIDTH, TOAST_HEIGHT, GlassTheme.RADIUS_SM,
                         GlassTheme.scaleAlpha(GlassTheme.surfacePanel(), alpha));
@@ -108,14 +125,14 @@ public final class Toasts {
                     VGRenderer.roundedRect(x, y, 2.5F, TOAST_HEIGHT, 1.0F,
                             GlassTheme.scaleAlpha(GlassTheme.accent(), alpha));
                 }
-                VGRenderer.textLeft(toast.label(), x + 10.0F, y + TOAST_HEIGHT / 2.0F,
-                        NAME_SIZE, VGFont.FACE,
+                VGRenderer.textLeft(label, x + 10.0F, y + TOAST_HEIGHT / 2.0F,
+                        NAME_SIZE, VGFont.face(),
                         GlassTheme.scaleAlpha(GlassTheme.textPrimary(), alpha));
 
                 String state = toast.on() ? "ON" : "OFF";
                 float pillPad = 8.0F;
                 float pillWidth = VGRenderer.textWidth(state,
-                        PILL_SIZE, VGFont.FACE, 0.0F) + pillPad * 2.0F;
+                        PILL_SIZE, VGFont.face(), 0.0F) + pillPad * 2.0F;
                 float pillX = x + TOAST_WIDTH - 8.0F - pillWidth;
                 float pillY = y + (TOAST_HEIGHT - PILL_HEIGHT) / 2.0F;
                 VGRenderer.roundedRect(pillX, pillY, pillWidth, PILL_HEIGHT, GlassTheme.RADIUS_SM,
@@ -123,7 +140,7 @@ public final class Toasts {
                                 ? GlassTheme.scaleAlpha(GlassTheme.accent(), 0.95F * alpha)
                                 : GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), 0.7F * alpha));
                 VGRenderer.textCentered(state, pillX + pillWidth / 2.0F, pillY + PILL_HEIGHT / 2.0F,
-                        PILL_SIZE, VGFont.FACE,
+                        PILL_SIZE, VGFont.face(),
                         GlassTheme.scaleAlpha(toast.on()
                                 ? GlassTheme.textOnAccent() : GlassTheme.textMuted(), alpha));
             }

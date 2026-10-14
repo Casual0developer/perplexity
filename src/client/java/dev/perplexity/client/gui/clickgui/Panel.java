@@ -494,9 +494,9 @@ public final class Panel {
 
             Color nameColor = GlassTheme.scaleAlpha(
                     GlassTheme.lerp(GlassTheme.textSecondary(), GlassTheme.textPrimary(), enabled), contentAlpha);
-            VGRenderer.textLeft(module.getName(), x + GlassTheme.TEXT_INSET,
+            VGRenderer.textLeft(module.getDisplayName(), x + GlassTheme.TEXT_INSET,
                     cursor + GlassTheme.MODULE_HEIGHT / 2.0F,
-                    GlassTheme.FONT_MODULE, VGFont.FACE, nameColor);
+                    GlassTheme.FONT_MODULE, VGFont.face(), nameColor);
 
             if (module.hasSettings()) {
                 drawChevron(x + width - GlassTheme.PADDING - 2.0F,
@@ -571,7 +571,7 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
             }
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(bool.get() ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
 
             // Switch: track plus a knob that slides between the two ends.
@@ -599,13 +599,13 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
             }
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             String value = number.display();
-            float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
+            float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.face(), 0.0F);
             VGRenderer.textLeft(value, (sx + sw - GlassTheme.SETTING_PADDING) - valueWidth, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(draggingSlider == number ? GlassTheme.textPrimary() : GlassTheme.textMuted(), alpha));
 
             float trackX = sx + GlassTheme.SETTING_PADDING;
@@ -632,13 +632,13 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.5F * alpha));
             }
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             String value = range.display();
-            float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
+            float valueWidth = VGRenderer.textWidth(value, GlassTheme.FONT_SETTING, VGFont.face(), 0.0F);
             VGRenderer.textLeft(value, (sx + sw - GlassTheme.SETTING_PADDING) - valueWidth, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(draggingRange == range ? GlassTheme.textPrimary() : GlassTheme.textMuted(), alpha));
 
             float trackX = sx + GlassTheme.SETTING_PADDING;
@@ -671,16 +671,16 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
             }
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             // Current choice right-aligned ahead of the chevron, which turns down as it opens.
             float chevronX = (sx + sw - GlassTheme.SETTING_PADDING) - 2.0F;
             String current = dropdown.get();
             float currentWidth = VGRenderer.textWidth(current,
-                    GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
+                    GlassTheme.FONT_HINT, VGFont.face(), 0.0F);
             VGRenderer.textLeft(current, chevronX - 8.0F - currentWidth, labelCenterY,
-                    GlassTheme.FONT_HINT, VGFont.FACE,
+                    GlassTheme.FONT_HINT, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
             drawChevron(chevronX, labelCenterY, open,
                     GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
@@ -704,7 +704,7 @@ public final class Panel {
                     }
                     VGRenderer.textLeft(dropdown.option(i),
                             sx + GlassTheme.SETTING_PADDING + 8.0F, optionY + headerH / 2.0F,
-                            GlassTheme.FONT_SETTING, VGFont.FACE,
+                            GlassTheme.FONT_SETTING, VGFont.face(),
                             GlassTheme.scaleAlpha(selected || optionHovered
                                     ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
                 }
@@ -718,12 +718,12 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
             }
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             String label = keybind.displayName();
             float pillPad = 6.0F;
-            float pillWidth = VGRenderer.textWidth(label, GlassTheme.FONT_HINT, VGFont.FACE, 0.0F) + pillPad * 2.0F;
+            float pillWidth = VGRenderer.textWidth(label, GlassTheme.FONT_HINT, VGFont.face(), 0.0F) + pillPad * 2.0F;
             float pillHeight = 13.0F;
             float pillX = (sx + sw - GlassTheme.SETTING_PADDING) - pillWidth;
             float pillY = sy + (GlassTheme.SETTING_HEIGHT - pillHeight) / 2.0F;
@@ -731,7 +731,7 @@ public final class Panel {
                     GlassTheme.scaleAlpha(keybind.isListening() ? GlassTheme.accent()
                             : GlassTheme.interactiveMuted(), 0.9F * alpha));
             VGRenderer.textCentered(label, pillX + pillWidth / 2.0F, pillY + pillHeight / 2.0F,
-                    GlassTheme.FONT_HINT, VGFont.FACE,
+                    GlassTheme.FONT_HINT, VGFont.face(),
                     GlassTheme.scaleAlpha(keybind.isListening() ? GlassTheme.textOnAccent()
                             : GlassTheme.textMuted(), alpha));
             return;
@@ -745,16 +745,16 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.moduleHover(), 0.45F * alpha));
             }
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
 
             // On-count ahead of the chevron, which turns down as the list opens.
             float chevronX = (sx + sw - GlassTheme.SETTING_PADDING) - 2.0F;
             String count = toggle.onCount() + "/" + toggle.getOptions().length;
             float countWidth = VGRenderer.textWidth(count,
-                    GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
+                    GlassTheme.FONT_HINT, VGFont.face(), 0.0F);
             VGRenderer.textLeft(count, chevronX - 8.0F - countWidth, labelCenterY,
-                    GlassTheme.FONT_HINT, VGFont.FACE,
+                    GlassTheme.FONT_HINT, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
             drawChevron(chevronX, labelCenterY, toggle.isOpen() ? 1.0F : 0.0F,
                     GlassTheme.scaleAlpha(GlassTheme.textMuted(), alpha));
@@ -782,7 +782,7 @@ public final class Panel {
                                 GlassTheme.scaleAlpha(GlassTheme.interactiveMuted(), 0.7F * alpha));
                     }
                     VGRenderer.textLeft(toggle.option(i), boxX + box + 5.0F, optionY + headerH / 2.0F,
-                            GlassTheme.FONT_SETTING, VGFont.FACE,
+                            GlassTheme.FONT_SETTING, VGFont.face(),
                             GlassTheme.scaleAlpha(on || optionHovered
                                     ? GlassTheme.textPrimary() : GlassTheme.textSecondary(), alpha));
                 }
@@ -800,7 +800,7 @@ public final class Panel {
             float pillH = 13.0F;
             float pillY = labelCenterY - pillH / 2.0F;
             VGRenderer.textLeft(setting.getName(), sx + GlassTheme.SETTING_PADDING, labelCenterY,
-                    GlassTheme.FONT_SETTING, VGFont.FACE,
+                    GlassTheme.FONT_SETTING, VGFont.face(),
                     GlassTheme.scaleAlpha(GlassTheme.textSecondary(), alpha));
             for (int i = 0; i < modes.length; i++) {
                 float pillX = pillX0 + i * (pillW + pillGap);
@@ -815,10 +815,10 @@ public final class Panel {
                                     (pillHovered ? 0.85F : 0.55F) * alpha));
                 }
                 float optionWidth = VGRenderer.textWidth(modes[i],
-                        GlassTheme.FONT_HINT, VGFont.FACE, 0.0F);
+                        GlassTheme.FONT_HINT, VGFont.face(), 0.0F);
                 VGRenderer.textLeft(modes[i], pillX + (pillW - optionWidth) / 2.0F,
                         pillY + pillH / 2.0F,
-                        GlassTheme.FONT_HINT, VGFont.FACE,
+                        GlassTheme.FONT_HINT, VGFont.face(),
                         GlassTheme.scaleAlpha(selected ? GlassTheme.textOnAccent()
                                 : (pillHovered ? GlassTheme.textPrimary() : GlassTheme.textMuted()),
                                 alpha));
@@ -833,7 +833,7 @@ public final class Panel {
      */
     private static float[] modePillGeometry(Setting setting, String[] modes, float sx, float sw) {
         float nameWidth = VGRenderer.textWidth(setting.getName(),
-                GlassTheme.FONT_SETTING, VGFont.FACE, 0.0F);
+                GlassTheme.FONT_SETTING, VGFont.face(), 0.0F);
         float pillGap = 3.0F;
         float available = sw - nameWidth - GlassTheme.SETTING_PADDING * 2.0F - 10.0F
                 - pillGap * (modes.length - 1);
