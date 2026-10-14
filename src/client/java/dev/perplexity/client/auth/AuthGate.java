@@ -17,4 +17,9 @@ public final class AuthGate {
     public static void pass() {
         passed = true;
     }
+
+    /** Locks the menu again after an authenticated user signs out. */
+    public static void reset() {
+        passed = false;
+    }
 }

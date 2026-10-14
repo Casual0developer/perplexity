@@ -1,7 +1,10 @@
 package dev.perplexity.client.gui.clickgui;
 
 import dev.perplexity.client.module.Category;
+import dev.perplexity.client.auth.AuthGate;
 import dev.perplexity.client.auth.CurrentAccount;
+import dev.perplexity.client.config.ConfigManager;
+import dev.perplexity.client.gui.auth.AuthScreen;
 import dev.perplexity.client.impl.modules.ui.MenuKeyModule;
 import dev.perplexity.client.impl.modules.ui.TabControlModule;
 import dev.perplexity.client.module.ModuleManager;
@@ -18,6 +21,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.awt.Color;
 
 /**
  * The glass ClickGUI. Everything is drawn with the ported NanoVG renderer inside a single frame that
@@ -27,6 +31,10 @@ import java.util.List;
 public final class ClickGuiScreen extends Screen {
     private static final float GRID_MARGIN = 24.0F;
     private static final float GLOBAL_SCROLL_SPEED = 60.0F;
+    private static final float ACCOUNT_BUTTON_WIDTH = 108.0F;
+    private static final float ACCOUNT_BUTTON_HEIGHT = 18.0F;
+    private static final float ACCOUNT_MENU_WIDTH = 174.0F;
+    private static final float ACCOUNT_MENU_HEIGHT = 78.0F;
     /**
      * GUI scale the interface is authored against. Rendering and every hit-test normalize
      * into this space, so the menu keeps identical size and layout whether the game's GUI
@@ -44,6 +52,7 @@ public final class ClickGuiScreen extends Screen {
     private int draggingPanel = -1;
     /** Index of the front-most panel. The list order never changes; this only drives draw order. */
     private int focusedPanel = -1;
+    private boolean accountOpen;
 
     private float lastMouseX;
     private float lastMouseY;
@@ -123,6 +132,7 @@ public final class ClickGuiScreen extends Screen {
                     && onScreen(panels.get(focusedPanel), uiWidth, uiHeight)) {
                 panels.get(focusedPanel).render(mouseX, mouseY);
             }
+            drawAccountSettings(uiWidth, mouseX, mouseY);
 
             VGRenderer.restore();
         } finally {
@@ -203,6 +213,64 @@ public final class ClickGuiScreen extends Screen {
                 GlassTheme.headerText());
     }
 
+    /** Account control is intentionally absent for anonymous users who chose Skip. */
+    private void drawAccountSettings(float uiWidth, float mouseX, float mouseY) {
+        if (!CurrentAccount.isLoggedIn()) {
+            accountOpen = false;
+            return;
+        }
+
+        float buttonX = uiWidth - ACCOUNT_BUTTON_WIDTH - 12.0F;
+        float buttonY = 7.0F;
+        boolean buttonHover = GlassTheme.inside(mouseX, mouseY, buttonX, buttonY,
+                ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT);
+        VGRenderer.roundedRect(buttonX, buttonY, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT,
+                GlassTheme.RADIUS_MD, buttonHover || accountOpen
+                        ? GlassTheme.moduleHover() : GlassTheme.groupFill());
+        VGRenderer.roundedOutline(buttonX, buttonY, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT,
+                GlassTheme.RADIUS_MD, 1.0F,
+                accountOpen ? GlassTheme.accent(0.8F) : GlassTheme.panelBorder());
+        VGRenderer.circle(buttonX + 10.0F, buttonY + ACCOUNT_BUTTON_HEIGHT * 0.5F,
+                3.0F, GlassTheme.accent());
+        VGRenderer.textLeft("Account", buttonX + 18.0F,
+                buttonY + ACCOUNT_BUTTON_HEIGHT * 0.5F, 8.0F,
+                VGFont.mediumFace(), GlassTheme.textPrimary());
+
+        if (!accountOpen) return;
+
+        float menuX = uiWidth - ACCOUNT_MENU_WIDTH - 12.0F;
+        float menuY = buttonY + ACCOUNT_BUTTON_HEIGHT + 5.0F;
+        VGRenderer.shadow(menuX, menuY, ACCOUNT_MENU_WIDTH, ACCOUNT_MENU_HEIGHT,
+                GlassTheme.RADIUS_LG, 12.0F, new Color(0, 0, 0, 130));
+        VGRenderer.verticalGradient(menuX, menuY, ACCOUNT_MENU_WIDTH, ACCOUNT_MENU_HEIGHT,
+                GlassTheme.RADIUS_LG, GlassTheme.surfacePanel(), GlassTheme.surfacePanelBottom());
+        VGRenderer.roundedOutline(menuX, menuY, ACCOUNT_MENU_WIDTH, ACCOUNT_MENU_HEIGHT,
+                GlassTheme.RADIUS_LG, GlassTheme.PANEL_BORDER, GlassTheme.panelBorder());
+
+        VGRenderer.textLeft("Signed in as", menuX + 10.0F, menuY + 13.0F,
+                7.0F, VGFont.face(), GlassTheme.textMuted());
+        VGRenderer.textLeft(shortEmail(CurrentAccount.email()), menuX + 10.0F, menuY + 28.0F,
+                8.0F, VGFont.mediumFace(), GlassTheme.textPrimary());
+
+        float signOutX = menuX + 8.0F;
+        float signOutY = menuY + 46.0F;
+        float signOutWidth = ACCOUNT_MENU_WIDTH - 16.0F;
+        float signOutHeight = 23.0F;
+        boolean signOutHover = GlassTheme.inside(mouseX, mouseY, signOutX, signOutY,
+                signOutWidth, signOutHeight);
+        VGRenderer.roundedRect(signOutX, signOutY, signOutWidth, signOutHeight,
+                GlassTheme.RADIUS_MD, signOutHover
+                        ? GlassTheme.accent(0.9F) : GlassTheme.interactiveMuted());
+        VGRenderer.textCentered("Sign Out", menuX + ACCOUNT_MENU_WIDTH * 0.5F,
+                signOutY + signOutHeight * 0.5F, 8.0F, VGFont.semiboldFace(),
+                signOutHover ? GlassTheme.textOnAccent() : GlassTheme.textPrimary());
+    }
+
+    private static String shortEmail(String email) {
+        if (email == null) return "";
+        return email.length() > 27 ? email.substring(0, 24) + "..." : email;
+    }
+
     // --- Input ---------------------------------------------------------------------------------
 
     @Override
@@ -219,6 +287,30 @@ public final class ClickGuiScreen extends Screen {
         double mouseX = event.x() * unit;
         double mouseY = event.y() * unit;
         int button = event.button();
+
+        if (button == 0 && CurrentAccount.isLoggedIn()) {
+            float uiWidth = width * unit;
+            float accountX = uiWidth - ACCOUNT_BUTTON_WIDTH - 12.0F;
+            float accountY = 7.0F;
+            if (GlassTheme.inside(mouseX, mouseY, accountX, accountY,
+                    ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT)) {
+                accountOpen = !accountOpen;
+                return true;
+            }
+            if (accountOpen) {
+                float menuX = uiWidth - ACCOUNT_MENU_WIDTH - 12.0F;
+                float menuY = accountY + ACCOUNT_BUTTON_HEIGHT + 5.0F;
+                if (GlassTheme.inside(mouseX, mouseY, menuX + 8.0F, menuY + 46.0F,
+                        ACCOUNT_MENU_WIDTH - 16.0F, 23.0F)) {
+                    signOut();
+                    return true;
+                }
+                if (!GlassTheme.inside(mouseX, mouseY, menuX, menuY,
+                        ACCOUNT_MENU_WIDTH, ACCOUNT_MENU_HEIGHT)) {
+                    accountOpen = false;
+                }
+            }
+        }
 
         // Front-to-back hit test: the focused panel gets first refusal, then the rest top-down.
         if (focusedPanel >= 0 && focusedPanel < panels.size()
@@ -240,6 +332,16 @@ public final class ClickGuiScreen extends Screen {
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    private void signOut() {
+        ConfigManager.onAccountChanged(null);
+        CurrentAccount.clear();
+        AuthGate.reset();
+        accountOpen = false;
+        if (minecraft != null) {
+            minecraft.setScreen(new AuthScreen());
+        }
     }
 
     private void focus(int index, double mouseX, double mouseY, int button) {
