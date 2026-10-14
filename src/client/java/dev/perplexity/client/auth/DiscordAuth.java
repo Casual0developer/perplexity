@@ -30,6 +30,7 @@ import javax.crypto.spec.PBEKeySpec;
  */
 public final class DiscordAuth {
     private static final String RECORD_PREFIX = "PERPLEXITY-ACCOUNT";
+    private static final String CREDENTIAL_SCHEME = "pbkdf2-sha256";
     private static final int PBKDF2_ITERATIONS = 600_000;
     private static final int KEY_BITS = 256;
 
@@ -66,10 +67,13 @@ public final class DiscordAuth {
             if (passwordError != null) return AuthResult.fail(passwordError);
             String id = java.util.UUID.randomUUID().toString();
             byte[] salt = new SecureRandom().generateSeed(16);
-            String record = RECORD_PREFIX + " email=" + key
-                    + " id=" + id
-                    + " salt=" + Base64.getEncoder().encodeToString(salt)
-                    + " hash=" + hash(salt, password);
+            String credential = CREDENTIAL_SCHEME + "$" + PBKDF2_ITERATIONS + "$"
+                    + Base64.getEncoder().encodeToString(salt) + "$" + hash(salt, password);
+            String record = "```\n"
+                    + "Account Number: \"" + id + "\"\n"
+                    + "Account Email: \"" + key + "\"\n"
+                    + "Account Password: \"" + credential + "\"\n"
+                    + "```";
             postMessage(record);
             return AuthResult.ok(key, id);
         }
@@ -141,11 +145,25 @@ public final class DiscordAuth {
     }
 
     private static JsonObject parseRecord(String content) {
-        if (content == null || !content.startsWith(RECORD_PREFIX + " ")) {
+        if (content == null) {
+            return null;
+        }
+        String trimmed = content.trim();
+        if (trimmed.startsWith("```")) {
+            int firstLine = trimmed.indexOf('\n');
+            int closingFence = trimmed.lastIndexOf("```");
+            if (firstLine >= 0 && closingFence > firstLine) {
+                trimmed = trimmed.substring(firstLine + 1, closingFence).trim();
+            }
+        }
+        if (trimmed.startsWith("Account Number:")) {
+            return parseReadableRecord(trimmed);
+        }
+        if (!trimmed.startsWith(RECORD_PREFIX + " ")) {
             return null;
         }
         JsonObject record = new JsonObject();
-        for (String part : content.substring(RECORD_PREFIX.length() + 1).split(" ")) {
+        for (String part : trimmed.substring(RECORD_PREFIX.length() + 1).split(" ")) {
             int equals = part.indexOf('=');
             if (equals > 0) {
                 record.addProperty(part.substring(0, equals), part.substring(equals + 1));
@@ -155,6 +173,57 @@ public final class DiscordAuth {
             return null;
         }
         return record;
+    }
+
+    /** Reads the human-friendly Discord layout while keeping the verifier's internal field names. */
+    private static JsonObject parseReadableRecord(String content) {
+        String id = null;
+        String email = null;
+        String credential = null;
+        for (String line : content.split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("Account Number:")) {
+                id = quotedValue(trimmed, "Account Number:");
+            } else if (trimmed.startsWith("Account Email:")) {
+                email = quotedValue(trimmed, "Account Email:");
+            } else if (trimmed.startsWith("Account Password:")) {
+                credential = quotedValue(trimmed, "Account Password:");
+            }
+        }
+        if (id == null || email == null || credential == null) {
+            return null;
+        }
+        String[] parts = credential.split("\\$", -1);
+        if (parts.length != 4 || !CREDENTIAL_SCHEME.equals(parts[0])) {
+            return null;
+        }
+        try {
+            int iterations = Integer.parseInt(parts[1]);
+            if (iterations != PBKDF2_ITERATIONS) {
+                return null;
+            }
+            Base64.getDecoder().decode(parts[2]);
+            if (parts[3].length() != KEY_BITS / 4) {
+                return null;
+            }
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
+        JsonObject record = new JsonObject();
+        record.addProperty("id", id);
+        record.addProperty("email", email);
+        record.addProperty("salt", parts[2]);
+        record.addProperty("hash", parts[3]);
+        return record;
+    }
+
+    private static String quotedValue(String line, String label) {
+        String value = line.substring(label.length()).trim();
+        if (value.length() < 2 || value.charAt(0) != '"'
+                || value.charAt(value.length() - 1) != '"') {
+            return null;
+        }
+        return value.substring(1, value.length() - 1);
     }
 
     private static void postMessage(String content) throws Exception {
