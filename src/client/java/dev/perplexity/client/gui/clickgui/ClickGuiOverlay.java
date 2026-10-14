@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import dev.perplexity.Perplexity;
+import dev.perplexity.client.gui.auth.AuthScreen;
 
 import net.minecraft.client.Minecraft;
 
@@ -30,7 +31,8 @@ public final class ClickGuiOverlay {
 
     public static void render() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (!(minecraft.screen instanceof ClickGuiScreen screen)) {
+        if (!(minecraft.screen instanceof ClickGuiScreen)
+                && !(minecraft.screen instanceof AuthScreen)) {
             return;
         }
 
@@ -44,7 +46,11 @@ public final class ClickGuiOverlay {
                         null,
                         OptionalDouble.empty());
         try {
-            screen.drawVg();
+            if (minecraft.screen instanceof ClickGuiScreen clickGui) {
+                clickGui.drawVg();
+            } else if (minecraft.screen instanceof AuthScreen auth) {
+                auth.drawVg();
+            }
         } catch (Throwable throwable) {
             // A broken menu must not take the game down; surface the first failure once so it is
             // diagnosable in the log instead of silently rendering nothing.
