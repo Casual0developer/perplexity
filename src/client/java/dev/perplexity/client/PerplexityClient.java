@@ -14,6 +14,7 @@ import dev.perplexity.client.impl.modules.combat.AttackHelperModule;
 import dev.perplexity.client.impl.modules.misc.BottleHelperModule;
 import dev.perplexity.client.impl.modules.misc.ProtectionModule;
 import dev.perplexity.client.impl.modules.movement.KeepSprintModule;
+import dev.perplexity.client.impl.modules.movement.AirJumpModule;
 import dev.perplexity.client.impl.modules.movement.BoatGlideModule;
 import dev.perplexity.client.impl.modules.movement.FlyModule;
 import dev.perplexity.client.impl.modules.movement.GuiWalkModule;
@@ -47,6 +48,7 @@ public class PerplexityClient implements ClientModInitializer {
         ModuleManager.get().register(new ClickHelperModule());
         ModuleManager.get().register(new AttackHelperModule());
         ModuleManager.get().register(new FlyModule());
+        ModuleManager.get().register(new AirJumpModule());
         ModuleManager.get().register(new SprintModule());
         ModuleManager.get().register(new GuiWalkModule());
         ModuleManager.get().register(new KeepSprintModule());
@@ -70,6 +72,7 @@ public class PerplexityClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ConfigManager.flush());
         ClientTickEvents.START_CLIENT_TICK.register(minecraft -> {
+            AirJumpModule.preTick();
             ClickHelperModule.preTick();
             AttackHelperModule.preTick();
         });

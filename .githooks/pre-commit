@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Keep the Discord credential local. Gradle may package discord.properties into a locally built
+# JAR, but neither that resource nor token-shaped assignments may enter Git history.
+staged_paths=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if printf '%s\n' "$staged_paths" | grep -Eiq '(^|/)discord\.properties$|(^|/)\.env($|\.)|\.secrets\.properties$'; then
+    echo "ERROR: refusing to commit a local secrets file." >&2
+    echo "discord.properties must stay untracked and may only be packaged into local builds." >&2
+    exit 1
+fi
+
+if git grep --cached -I -E 'botToken[[:space:]]*=[[:space:]]*[A-Za-z0-9._-]{20,}|mfa\.[A-Za-z0-9_-]{20,}' -- . >/dev/null 2>&1; then
+    echo "ERROR: refusing to commit content that looks like a Discord token." >&2
+    exit 1
+fi
+
+exit 0
