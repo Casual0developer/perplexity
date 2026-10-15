@@ -46,4 +46,8 @@ SkidFolder/
 .freebuff/
 
 # local secrets (bot tokens etc. must never be committed)
-src/client/resources/discord.properties
+discord.properties
+**/discord.properties
+*.secrets.properties
+.env
+.env.*
