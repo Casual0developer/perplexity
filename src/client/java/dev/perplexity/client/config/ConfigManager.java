@@ -94,6 +94,7 @@ public final class ConfigManager {
             JsonObject entry = new JsonObject();
             entry.addProperty("enabled", module.isEnabled());
             entry.addProperty("keybind", module.getKeybind());
+            entry.addProperty("visible", module.isVisibleInMenu());
             JsonObject settings = new JsonObject();
             for (Setting setting : module.getSettings()) {
                 JsonObject saved = saveSetting(setting);
@@ -162,6 +163,12 @@ public final class ConfigManager {
             if (saved.has("keybind") && saved.get("keybind").isJsonPrimitive()) {
                 try {
                     module.setKeybind(saved.get("keybind").getAsInt());
+                } catch (Exception ignored) {
+                }
+            }
+            if (saved.has("visible") && saved.get("visible").isJsonPrimitive()) {
+                try {
+                    module.setVisibleInMenu(saved.get("visible").getAsBoolean());
                 } catch (Exception ignored) {
                 }
             }

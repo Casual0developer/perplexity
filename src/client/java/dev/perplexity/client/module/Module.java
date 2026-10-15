@@ -16,6 +16,7 @@ public abstract class Module {
     private boolean enabled;
     private int keybind;
     private boolean expanded;
+    private boolean visibleInMenu = true;
 
     protected Module(Category category) {
         this.category = category;
@@ -82,6 +83,17 @@ public abstract class Module {
 
     public void setExpanded(boolean expanded) {
         this.expanded = expanded;
+    }
+
+    public boolean isVisibleInMenu() {
+        return visibleInMenu;
+    }
+
+    public void setVisibleInMenu(boolean visibleInMenu) {
+        this.visibleInMenu = visibleInMenu;
+        if (!visibleInMenu) {
+            expanded = false;
+        }
     }
 
     protected void onEnable() {

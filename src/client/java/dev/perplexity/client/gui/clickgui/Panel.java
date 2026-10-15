@@ -34,8 +34,10 @@ public final class Panel {
     private static final int TYPE_KEYBIND = 6;
     private static final int TYPE_TOGGLE_LIST = 7;
 
-    /** Clickable width of the "+" collapse glyph at a panel header's right edge. */
-    private static final float PLUS_BUTTON_WIDTH = 22.0F;
+    /** Clickable width of the edit-menu ellipsis at a panel header's right edge. */
+    private static final float EDIT_BUTTON_WIDTH = 24.0F;
+    private static final float SHAKE_DURATION = 0.30F;
+    private static final float SHAKE_AMPLITUDE = 2.4F;
 
     /** Distance a settings row travels while it slides into place, in GUI units. */
     private static final float SETTINGS_SLIDE = 9.0F;
@@ -111,6 +113,7 @@ public final class Panel {
     private float width = GlassTheme.PANEL_WIDTH;
 
     private boolean collapsed;
+    private boolean editMode;
     /** Set once the user drags the panel somewhere, so the grid stops managing its position. */
     private boolean placed;
     /** Set while the current press is actually relocating the panel, so a plain click does not pin it. */
@@ -124,6 +127,7 @@ public final class Panel {
     private final Map<NumberSetting, Float> sliderAnimations = new IdentityHashMap<>();
     private final Map<BooleanSetting, Float> toggleAnimations = new IdentityHashMap<>();
     private final Map<DropdownSetting, Float> dropdownAnimations = new IdentityHashMap<>();
+    private final Map<Module, Float> shakeAnimations = new IdentityHashMap<>();
 
     private float sway;
     private float swayVelocity;
@@ -161,6 +165,16 @@ public final class Panel {
 
     public Category getCategory() {
         return category;
+    }
+
+    public boolean isEditing() {
+        return editMode;
+    }
+
+    public boolean isEditButton(double mouseX, double mouseY) {
+        return GlassTheme.inside(mouseX, mouseY,
+                x + width - EDIT_BUTTON_WIDTH, y,
+                EDIT_BUTTON_WIDTH, GlassTheme.PANEL_HEADER_HEIGHT);
     }
 
     public float getX() {
@@ -211,6 +225,9 @@ public final class Panel {
     private float contentHeight() {
         float total = 0.0F;
         for (Module module : modules) {
+            if (!shows(module)) {
+                continue;
+            }
             total += elementHeight(module) + GlassTheme.MODULE_SPACING;
         }
         return total;
@@ -221,17 +238,22 @@ public final class Panel {
      * {@code collapse}, so right-clicking a header folds the panel smoothly instead of snapping.
      */
     public float getHeight() {
-        if (modules.isEmpty()) {
+        float content = contentHeight();
+        if (content <= 0.0F) {
             return GlassTheme.PANEL_HEADER_HEIGHT;
         }
         float open = Math.min(GlassTheme.MAX_PANEL_HEIGHT,
-                GlassTheme.PANEL_HEADER_HEIGHT + GlassTheme.PANEL_CONTENT_GAP + contentHeight());
+                GlassTheme.PANEL_HEADER_HEIGHT + GlassTheme.PANEL_CONTENT_GAP + content);
         return GlassTheme.PANEL_HEADER_HEIGHT
                 + (open - GlassTheme.PANEL_HEADER_HEIGHT) * (1.0F - collapse);
     }
 
     private float elementHeight(Module module) {
-        return GlassTheme.MODULE_HEIGHT + expand(module) * settingsHeight(module);
+        return GlassTheme.MODULE_HEIGHT + (editMode ? 0.0F : expand(module) * settingsHeight(module));
+    }
+
+    private boolean shows(Module module) {
+        return editMode || module.isVisibleInMenu();
     }
 
     private float settingsHeight(Module module) {
@@ -268,7 +290,7 @@ public final class Panel {
             VGRenderer.translate(-pivotX, -pivotY);
         }
         try {
-            renderBody(mouseX, mouseY, height);
+            renderBody(mouseX, mouseY, height, dt);
         } finally {
             if (tilted) {
                 VGRenderer.restore();
@@ -379,7 +401,23 @@ public final class Panel {
         return Math.max(0.0F, Math.min(SWAY_MAX_FRAME, dt));
     }
 
-    private void renderBody(float mouseX, float mouseY, float height) {
+    private float shakeOffset(Module module, float dt) {
+        float remaining = shakeAnimations.getOrDefault(module, 0.0F);
+        if (remaining <= 0.0F) {
+            return 0.0F;
+        }
+        remaining = Math.max(0.0F, remaining - dt);
+        if (remaining == 0.0F) {
+            shakeAnimations.remove(module);
+            return 0.0F;
+        }
+        shakeAnimations.put(module, remaining);
+        float progress = 1.0F - remaining / SHAKE_DURATION;
+        float decay = 1.0F - progress;
+        return (float) Math.sin(progress * Math.PI * 8.0F) * SHAKE_AMPLITUDE * decay;
+    }
+
+    private void renderBody(float mouseX, float mouseY, float height, float dt) {
         // The edge is a filled rounded rect with the surface drawn inset on top of it, not a stroked
         // outline. A stroke is tessellated into short segments, and around the corner arcs that
         // polyline sits inside the true curve, so a stroked border always renders a touch thinner at
@@ -391,18 +429,24 @@ public final class Panel {
                 GlassTheme.RADIUS_LG - border,
                 GlassTheme.surfacePanel(), GlassTheme.surfacePanelBottom());
 
-        // Header: plain near-white with a collapse glyph pinned right, like the reference.
+        // Header: plain near-white with a per-panel edit ellipsis pinned right.
         float headerSize = GlassTheme.FONT_HEADER;
         VGRenderer.textLeft(category.getDisplayName(), x + GlassTheme.PADDING,
                 y + GlassTheme.PANEL_HEADER_HEIGHT / 2.0F,
                 headerSize, VGFont.semiboldFace(), HEADER_TRACKING, GlassTheme.headerText());
-        String collapseGlyph = "+";
-        float glyphWidth = VGRenderer.textWidth(collapseGlyph, headerSize,
+        String editGlyph = "...";
+        float glyphWidth = VGRenderer.textWidth(editGlyph, headerSize,
                 VGFont.semiboldFace(), HEADER_TRACKING);
-        VGRenderer.textLeft(collapseGlyph,
+        if (editMode) {
+            VGRenderer.roundedRect(x + width - EDIT_BUTTON_WIDTH, y + 3.0F,
+                    EDIT_BUTTON_WIDTH - 3.0F, GlassTheme.PANEL_HEADER_HEIGHT - 6.0F,
+                    GlassTheme.RADIUS_SM, GlassTheme.accent(0.28F));
+        }
+        VGRenderer.textLeft(editGlyph,
                 x + width - GlassTheme.PADDING - 2.0F - glyphWidth,
                 y + GlassTheme.PANEL_HEADER_HEIGHT / 2.0F,
-                headerSize, VGFont.semiboldFace(), HEADER_TRACKING, GlassTheme.textMuted());
+                headerSize, VGFont.semiboldFace(), HEADER_TRACKING,
+                editMode ? GlassTheme.accentBright() : GlassTheme.textMuted());
 
         rows.clear();
         float contentAlpha = 1.0F - collapse;
@@ -423,16 +467,34 @@ public final class Panel {
 
         float cursor = contentTop - scroll + collapse * COLLAPSE_SLIDE;
         for (Module module : modules) {
-            boolean expanded = module.isExpanded() && module.hasSettings();
+            if (!shows(module)) {
+                continue;
+            }
+            boolean expanded = !editMode && module.isExpanded() && module.hasSettings();
             float expand = animate(expandAnimations, module, expanded ? 1.0F : 0.0F, EXPAND_SPEED);
             float elementHeight = GlassTheme.MODULE_HEIGHT + expand * settingsHeight(module);
+
+            float shake = shakeOffset(module, dt);
+            if (Math.abs(shake) > 0.01F) {
+                VGRenderer.save();
+                VGRenderer.translate(shake, 0.0F);
+            }
 
             boolean hovered = GlassTheme.inside(mouseX, mouseY, x, cursor, width, GlassTheme.MODULE_HEIGHT);
             float hover = animate(hoverAnimations, module, hovered ? 1.0F : 0.0F, HOVER_SPEED);
             float enabled = animate(enabledAnimations, module, module.isEnabled() ? 1.0F : 0.0F, ENABLE_SPEED);
 
+            if (editMode) {
+                VGRenderer.roundedRect(x + GlassTheme.PADDING * 0.5F, cursor,
+                        width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT,
+                        GlassTheme.RADIUS_SM, module.isVisibleInMenu()
+                                ? GlassTheme.accent(0.34F) : GlassTheme.interactiveMuted());
+                VGRenderer.roundedOutline(x + GlassTheme.PADDING * 0.5F, cursor,
+                        width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT,
+                        GlassTheme.RADIUS_SM, 1.0F, module.isVisibleInMenu()
+                                ? GlassTheme.accent(0.72F) : GlassTheme.panelBorder());
             // Enabled state is a solid gradient bar behind the row, white label above it.
-            if (enabled > 0.01F) {
+            } else if (enabled > 0.01F) {
                 VGRenderer.verticalGradient(x + GlassTheme.PADDING * 0.5F, cursor,
                         width - GlassTheme.PADDING, GlassTheme.MODULE_HEIGHT,
                         GlassTheme.RADIUS_SM,
@@ -453,7 +515,7 @@ public final class Panel {
             // passes it, so the crest alone has faded to nothing by the time it reaches the far end of
             // the row — while the crest is what makes it read as coming *from* the click. Both are
             // drawn before the label so the label stays crisp above them.
-            if (rippleModule == module) {
+            if (!editMode && rippleModule == module) {
                 float rowInset = GlassTheme.PADDING * 0.5F;
                 VGRenderer.roundedRect(x + rowInset, cursor, width - GlassTheme.PADDING,
                         GlassTheme.MODULE_HEIGHT, GlassTheme.RADIUS_SM,
@@ -492,13 +554,15 @@ public final class Panel {
                         GlassTheme.scaleAlpha(GlassTheme.groupFill(), groupAlpha));
             }
 
-            Color nameColor = GlassTheme.scaleAlpha(
-                    GlassTheme.lerp(GlassTheme.textSecondary(), GlassTheme.textPrimary(), enabled), contentAlpha);
+            Color nameColor = editMode
+                    ? (module.isVisibleInMenu() ? GlassTheme.textPrimary() : GlassTheme.textMuted())
+                    : GlassTheme.scaleAlpha(GlassTheme.lerp(GlassTheme.textSecondary(),
+                            GlassTheme.textPrimary(), enabled), contentAlpha);
             VGRenderer.textLeft(module.getDisplayName(), x + GlassTheme.TEXT_INSET,
                     cursor + GlassTheme.MODULE_HEIGHT / 2.0F,
                     GlassTheme.FONT_MODULE, VGFont.face(), nameColor);
 
-            if (module.hasSettings()) {
+            if (!editMode && module.hasSettings()) {
                 drawChevron(x + width - GlassTheme.PADDING - 2.0F,
                         cursor + GlassTheme.MODULE_HEIGHT / 2.0F, expand,
                         GlassTheme.scaleAlpha(GlassTheme.textMuted(), contentAlpha * (0.45F + 0.55F * expand)));
@@ -531,6 +595,10 @@ public final class Panel {
                     settingY += rowHeight + GlassTheme.SETTING_SPACING;
                     index++;
                 }
+            }
+
+            if (Math.abs(shake) > 0.01F) {
+                VGRenderer.restore();
             }
 
             cursor += elementHeight + GlassTheme.MODULE_SPACING;
@@ -921,9 +989,15 @@ public final class Panel {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (GlassTheme.inside(mouseX, mouseY, x, y, width, GlassTheme.PANEL_HEADER_HEIGHT)) {
             if (button == 0) {
-                if (mouseX >= x + width - PLUS_BUTTON_WIDTH) {
-                    // The "+" glyph: left-clicking it folds the panel to its header.
-                    collapsed = !collapsed;
+                if (isEditButton(mouseX, mouseY)) {
+                    editMode = !editMode;
+                    collapsed = false;
+                    scroll = 0.0F;
+                    if (editMode) {
+                        for (Module module : modules) {
+                            module.setExpanded(false);
+                        }
+                    }
                 } else {
                     draggingPanel = true;
                     dragOffsetX = (float) mouseX - x;
@@ -946,14 +1020,17 @@ public final class Panel {
 
             switch (row.type) {
                 case TYPE_MODULE -> {
+                    if (editMode && button == 0) {
+                        row.module.setVisibleInMenu(!row.module.isVisibleInMenu());
+                        shakeAnimations.put(row.module, SHAKE_DURATION);
                     // Reference behaviour: left click toggles, right click opens the settings.
-                    if (button == 0) {
+                    } else if (!editMode && button == 0) {
                         boolean enabling = !row.module.isEnabled();
                         row.module.toggle();
                         // Anchored to the click, not the row centre, so the bloom starts under the
                         // cursor wherever along the row it landed.
                         startRipple(row.module, row, mouseX, mouseY, enabling);
-                    } else if (button == 1 && row.module.hasSettings()) {
+                    } else if (!editMode && button == 1 && row.module.hasSettings()) {
                         row.module.setExpanded(!row.module.isExpanded());
                     }
                 }

@@ -133,6 +133,7 @@ public final class ClickGuiScreen extends Screen {
                 panels.get(focusedPanel).render(mouseX, mouseY);
             }
             drawAccountSettings(uiWidth, mouseX, mouseY);
+            drawEditingIndicator(uiWidth, uiHeight);
 
             VGRenderer.restore();
         } finally {
@@ -269,6 +270,30 @@ public final class ClickGuiScreen extends Screen {
         return email.length() > 27 ? email.substring(0, 24) + "..." : email;
     }
 
+    private void drawEditingIndicator(float uiWidth, float uiHeight) {
+        boolean editing = false;
+        for (Panel panel : panels) {
+            if (panel.isEditing()) {
+                editing = true;
+                break;
+            }
+        }
+        if (!editing) return;
+
+        String label = "Editing mode";
+        float textWidth = VGRenderer.textWidth(label, 8.0F, VGFont.mediumFace(), 0.0F);
+        float pillWidth = textWidth + 24.0F;
+        float pillHeight = 21.0F;
+        float pillX = (uiWidth - pillWidth) * 0.5F;
+        float pillY = uiHeight - pillHeight - 10.0F;
+        VGRenderer.shadow(pillX, pillY, pillWidth, pillHeight,
+                pillHeight * 0.5F, 9.0F, new Color(0, 0, 0, 120));
+        VGRenderer.roundedRect(pillX, pillY, pillWidth, pillHeight,
+                pillHeight * 0.5F, GlassTheme.accent(0.88F));
+        VGRenderer.textCentered(label, uiWidth * 0.5F, pillY + pillHeight * 0.5F,
+                8.0F, VGFont.mediumFace(), GlassTheme.textOnAccent());
+    }
+
     // --- Input ---------------------------------------------------------------------------------
 
     @Override
@@ -348,7 +373,8 @@ public final class ClickGuiScreen extends Screen {
         // lives at its slot, and testing the slot would make it impossible to pick up again.
         Panel panel = panels.get(index);
         if (button == 0 && GlassTheme.inside(mouseX, mouseY, panel.getX(), panel.getY(),
-                panel.getWidth(), GlassTheme.PANEL_HEADER_HEIGHT)) {
+                panel.getWidth(), GlassTheme.PANEL_HEADER_HEIGHT)
+                && !panel.isEditButton(mouseX, mouseY)) {
             draggingPanel = index;
         }
     }
